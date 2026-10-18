@@ -103,12 +103,17 @@ def main(out_dir):
         "5_robot_plus_dirt": dict(robot=dict(enabled=True, retune_speed=1.0, mix=1.0),
                                   dirt=dict(enabled=True, drive=0.5, bitcrush=0.3, artifacts=0.4, mix=1.0)),
         "6_dirt_only": dict(dirt=dict(enabled=True, drive=0.5, bitcrush=0.3, artifacts=0.4, mix=1.0)),
+        "7_supersaw_voice": dict(supersaw=dict(enabled=True, copies=7, detune=0.5, mix=0.7, spread=0.9, widen=0.5)),
+        "8_robot_supersaw_dirt": dict(robot=dict(enabled=True, retune_speed=1.0, mix=1.0),
+                                      supersaw=dict(enabled=True, copies=9, detune=0.6, mix=0.7, spread=1.0, widen=0.6),
+                                      dirt=dict(enabled=True, drive=0.3, bitcrush=0.15, artifacts=0.2, mix=1.0)),
     }
     print(f"{'variant':26s} {'avg pitch error':>16s} {'pitch wobble':>14s}")
     for name, fx in variants.items():
         y = apply_fx(clean, job_for(notes, **fx))
+        mono = y if y.ndim == 1 else y.mean(axis=1)
         (out / f"{name}.wav").write_bytes(to_wav_bytes(y * 0.9, SR))
-        print(f"{name:26s} {note_errors(y, notes):13.1f} c {spread(y, notes):11.1f} c")
+        print(f"{name:26s} {note_errors(mono, notes):13.1f} c {spread(mono, notes):11.1f} c")
 
 
 if __name__ == "__main__":

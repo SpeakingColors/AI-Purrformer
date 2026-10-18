@@ -38,3 +38,8 @@ Helper features (draft):
 - Syllable fit: count the notes in each MIDI phrase and suggest lines with that many syllables, so lyrics land on the melody.
 - Notepad with sections (verse, hook, drop) and a "send to singer" button.
 - Runs as a separate `lyrics/` tool first, then inside the plugin.
+
+## 4. Supersaw voice (added 2026-10-18)
+
+Same idea as a supersaw oscillator, applied to the voice: 3 to 9 copies, outer copies detuned up to +-50 cents, each with a slow private drift, panned across the stereo field. The centre copy stays unshifted. A widener boosts the side signal. Controls: copies, detune, stack mix, spread, widen. Output becomes stereo. Prototype only, tuned by measurement not by ear.
+Order in the chain: clean voice, robot, supersaw, dirt.

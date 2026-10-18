@@ -16,7 +16,8 @@
 - [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics, Voices pages), kept in the Claude Design canvas "AI Purrformer UI"
 - [x] Robot-voice prototype (numpy): hard retune to MIDI, dry/wet vs clean voice. Measured on a synthetic voice only, NOT yet tuned by ear
 - [x] Dirt prototype: saturation, bitcrush, artifacts. Not yet tuned by ear
-- [ ] Port robot + dirt to C++ for the plugin; formant preservation; test on a real voice
+- [x] Supersaw voice stack + widener prototype (stereo). Not tuned by ear yet
+- [ ] Port robot + supersaw + dirt to C++ for the plugin; formant preservation; test on a real voice
 - [ ] Melody leads / voice leads toggle (ACE-Step Vocal2BGM test)
 - [ ] Lyric notepad (standalone first), local LLM helper
 - [ ] Flatpak packaging

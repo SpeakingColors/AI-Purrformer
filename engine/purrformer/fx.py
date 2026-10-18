@@ -158,17 +158,66 @@ def artifacts(x, sr, amount, seed=7):
     return y * warble
 
 
-def dirt(x, sr, job: SingJob):
-    cfg = job.fx.dirt
+def _dirt_mono(x, sr, cfg):
     y = saturate(x, cfg.drive)
     y = bitcrush(y, cfg.bitcrush)
     y = artifacts(y, sr, cfg.artifacts)
     return (1 - cfg.mix) * x + cfg.mix * y
 
 
+def dirt(x, sr, job: SingJob):
+    cfg = job.fx.dirt
+    if x.ndim == 2:  # same glitches on both channels (seeded), so the stereo image stays stable
+        return np.stack([_dirt_mono(x[:, c], sr, cfg) for c in range(x.shape[1])], axis=1)
+    return _dirt_mono(x, sr, cfg)
+
+
+# ---------------------------------------------------------------- supersaw stage
+def supersaw(x, sr, job: SingJob):
+    """Stack detuned copies of a mono voice, pan them across the stereo field, widen.
+
+    Same idea as a supersaw oscillator, but the stack is made of the voice itself.
+    Returns stereo (n, 2). The centre copy stays unshifted (delayed to line up with the others).
+    """
+    cfg = job.fx.supersaw
+    n_copies = cfg.copies
+    grain = 0.03
+    align = int(grain / 2 * sr)  # shifted copies sit about half a grain late; delay the centre to match
+    t = np.arange(len(x)) / sr
+    offsets = np.linspace(-1.0, 1.0, n_copies)
+    left = np.zeros(len(x))
+    right = np.zeros(len(x))
+    centre = np.concatenate([np.zeros(align), x])[:len(x)]
+    for k, o in enumerate(offsets):
+        pan = o * cfg.spread
+        ang = (pan + 1.0) * np.pi / 4.0
+        gl, gr = np.cos(ang), np.sin(ang)
+        if abs(o) < 1e-9:
+            y = centre
+        else:
+            # fixed detune plus a slow private drift (+-3 cents at full detune), each copy on its own phase
+            drift = 3.0 * cfg.detune * np.sin(2 * np.pi * (0.2 + 0.07 * k) * t + 1.7 * k)
+            cents = o * 50.0 * cfg.detune + drift
+            y = delay_line_shift(x, 2.0 ** (cents / 1200.0), grain=grain, sr=sr)
+        left += gl * y
+        right += gr * y
+    stack = np.stack([left, right], axis=1) / np.sqrt(n_copies / 2.0)
+    dry = np.stack([centre, centre], axis=1)
+    out = (1 - cfg.mix) * dry + cfg.mix * stack
+    # widener: boost the side (L minus R) signal
+    mid = (out[:, 0] + out[:, 1]) / 2.0
+    side = (out[:, 0] - out[:, 1]) / 2.0 * (1.0 + 2.0 * cfg.widen)
+    out = np.stack([mid + side, mid - side], axis=1)
+    # keep loudness close to the input
+    rin, rout = np.sqrt(np.mean(x ** 2)), np.sqrt(np.mean(out ** 2))
+    if rout > 1e-9:
+        out = out * (rin / rout)
+    return out
+
+
 # ---------------------------------------------------------------- chain
 def apply_fx(audio, job: SingJob):
-    """clean voice -> [robot, mixed with clean] -> [dirt]."""
+    """clean voice -> [robot, mixed with clean] -> [supersaw stack, stereo] -> [dirt]."""
     sr = job.sample_rate
     y = np.asarray(audio, dtype=np.float64)
     if len(y) == 0:
@@ -177,6 +226,8 @@ def apply_fx(audio, job: SingJob):
         wet = robot(y, sr, job)
         m = job.fx.robot.mix
         y = (1 - m) * y + m * wet
+    if job.fx.supersaw.enabled:
+        y = supersaw(y, sr, job)
     if job.fx.dirt.enabled:
         y = dirt(y, sr, job)
     return np.clip(y, -1.0, 1.0)

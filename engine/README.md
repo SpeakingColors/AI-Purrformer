@@ -34,7 +34,7 @@ Implement `Backend` in `purrformer/backends/base.py` and call `register()`.
 
 ## FX prototype
 
-`purrformer/fx.py` holds the robot retune (pitch tracker + delay-line shifter) and the dirt stage.
+`purrformer/fx.py` holds the robot retune (pitch tracker + delay-line shifter), the supersaw voice stack (detuned copies, stereo spread, widener) and the dirt stage. With supersaw on, the output is stereo.
 `/sing` applies `job.fx` after the backend renders. Make listening demos with:
 
     pip install scipy

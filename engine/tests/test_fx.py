@@ -64,3 +64,64 @@ def test_saturate_bounded_and_zero_drive_identity():
 
 def test_empty_audio_ok():
     assert len(apply_fx(np.zeros(0), SingJob())) == 0
+
+
+# ---------------------------------------------------------------- supersaw
+def super_job(**kw):
+    j = SingJob(tempo_bpm=60, notes=[Note(start_beats=0, length_beats=2, pitch=57)])
+    j.fx.supersaw.enabled = True
+    for k, v in kw.items():
+        setattr(j.fx.supersaw, k, v)
+    return j
+
+
+def test_supersaw_is_stereo_with_different_channels_and_similar_loudness():
+    x = sine(220, 1.0)
+    y = apply_fx(x, super_job(copies=7, detune=0.6, spread=1.0, widen=0.5))
+    assert y.shape == (len(x), 2)
+    assert not np.allclose(y[:, 0], y[:, 1], atol=1e-3)
+    assert np.max(np.abs(y)) <= 1.0
+    rms_in, rms_out = np.sqrt(np.mean(x ** 2)), np.sqrt(np.mean(y ** 2))
+    assert rms_out == pytest.approx(rms_in, rel=0.15)
+
+
+def test_supersaw_keeps_the_pitch_centre():
+    x = sine(220, 1.0)
+    y = apply_fx(x, super_job(copies=7, detune=0.5))
+    mono = y.mean(axis=1)[int(0.2 * SR):int(0.9 * SR)]
+    assert abs(cents(pitch_of(mono), 220.0)) < 40
+
+
+def test_more_detune_spreads_the_spectrum():
+    x = sine(220, 1.0)
+
+    def bandwidth(sig):
+        s = np.abs(np.fft.rfft(sig * np.hanning(len(sig))))
+        f = np.fft.rfftfreq(len(sig), 1 / SR)
+        band = (f > 150) & (f < 300)
+        p = s[band] ** 2
+        c = (p * f[band]).sum() / p.sum()
+        return np.sqrt((p * (f[band] - c) ** 2).sum() / p.sum())
+
+    lo = apply_fx(x, super_job(detune=0.05)).mean(axis=1)
+    hi = apply_fx(x, super_job(detune=1.0)).mean(axis=1)
+    assert bandwidth(hi) > 1.5 * bandwidth(lo)
+
+
+def test_supersaw_off_stays_mono_and_dirt_works_on_stereo():
+    x = sine(220, 0.5)
+    assert apply_fx(x, SingJob()).ndim == 1
+    j = super_job()
+    j.fx.dirt.enabled = True
+    j.fx.dirt.drive = 0.5
+    j.fx.dirt.bitcrush = 0.3
+    y = apply_fx(x, j)
+    assert y.shape == (len(x), 2) and np.max(np.abs(y)) <= 1.0
+
+
+def test_wav_stereo_roundtrip():
+    import io, wave
+    from purrformer.wav import to_wav_bytes
+    st = np.stack([sine(220, 0.1), sine(330, 0.1)], axis=1)
+    w = wave.open(io.BytesIO(to_wav_bytes(st, SR)))
+    assert w.getnchannels() == 2 and w.getnframes() == len(st)

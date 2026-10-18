@@ -38,8 +38,19 @@ class DirtFx(BaseModel):
     mix: float = Field(default=1.0, ge=0, le=1)
 
 
+class SuperFx(BaseModel):
+    """Supersaw idea applied to a voice: a stack of detuned copies spread across the stereo field."""
+    enabled: bool = False
+    copies: int = Field(default=7, ge=3, le=9)  # odd counts keep a centre copy
+    detune: float = Field(default=0.4, ge=0, le=1)  # 0 = no detune, 1 = outer copies +-50 cents
+    mix: float = Field(default=0.6, ge=0, le=1)  # 0 = only the centre voice, 1 = all stack
+    spread: float = Field(default=0.8, ge=0, le=1)  # how far the copies are panned
+    widen: float = Field(default=0.3, ge=0, le=1)  # extra mid/side widening of the whole stack
+
+
 class FxSettings(BaseModel):
     robot: RobotFx = RobotFx()
+    supersaw: SuperFx = SuperFx()
     dirt: DirtFx = DirtFx()
 
 
