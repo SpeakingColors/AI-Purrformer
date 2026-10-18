@@ -2,7 +2,8 @@
 
 - [x] Repo created (AGPL-3.0)
 - [x] Engine research, first two passes (see ENGINES.md)
-- [ ] Voice blending test (mix several reference voices)
+- [x] Voice bank (import with rights confirmation, built-in test voices) and layer blending, 28 tests passing
+- [ ] Voice blending into ONE new voice (embedding mode): test on SoulX-Singer
 - [ ] Stem separation step (ACE-Step 1.5 idea, check license)
 - [ ] Test engine on RX 9070 XT with ROCm PyTorch in Ubuntu Distrobox
 - [ ] Confirm engine pick after ROCm test (Seed-VC first, RVC/DDSP-SVC second)
@@ -12,7 +13,7 @@
 - [ ] Melody input to the real engine (see MELODY-SOURCES.md)
 - [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
-- [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics pages), kept in the Claude Design canvas "AI Purrformer UI"
+- [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics, Voices pages), kept in the Claude Design canvas "AI Purrformer UI"
 - [x] Robot-voice prototype (numpy): hard retune to MIDI, dry/wet vs clean voice. Measured on a synthetic voice only, NOT yet tuned by ear
 - [x] Dirt prototype: saturation, bitcrush, artifacts. Not yet tuned by ear
 - [ ] Port robot + dirt to C++ for the plugin; formant preservation; test on a real voice

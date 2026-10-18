@@ -19,6 +19,7 @@ The `tone` backend needs no GPU and plays the notes as sine tones, for testing t
 - `GET /health`: status and the list of backends (name, available)
 - `POST /sing`: body is a job (see `purrformer/job.py`), returns a WAV
 - `POST /midi/parse`: body is raw `.mid` bytes, returns tempo and notes in job format
+- `GET/POST/DELETE /voices`: the voice bank, see `docs/VOICES.md`
 
 ## Job format (ours)
 

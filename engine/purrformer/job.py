@@ -52,6 +52,9 @@ class SingJob(BaseModel):
     notes: list[Note] = Field(default_factory=list)
     lyrics: Optional[str] = None
     voices: list[VoiceSlot] = Field(default_factory=list)
+    # "layer": render every voice separately and mix the audio (always works).
+    # "embedding": blend the voices inside the engine to make one new voice (backend must support it).
+    blend_mode: Literal["layer", "embedding"] = "layer"
     fx: FxSettings = FxSettings()
 
     @model_validator(mode="after")
