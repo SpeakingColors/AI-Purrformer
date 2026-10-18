@@ -63,6 +63,8 @@ jobs:
           cp -r engine dist/engine
           rm -rf dist/engine/.venv dist/engine/.pytest_cache
           cp docs/BUILD.md dist/ || true
+          cp scripts/run-engine.bat dist/ || true
+          cp scripts/run-engine.sh dist/ || true
       - uses: actions/upload-artifact@v4
         with:
           name: AI-Purrformer-${{ matrix.name }}
