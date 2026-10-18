@@ -574,7 +574,7 @@ struct VoicesPage : Page
 {
     PurrProcessor& p; Panel lib { "VOICE LIBRARY", sun, Ico::users }, det { "VOICE DETAILS", mint, Ico::mic };
     juce::TextButton import { "Import .wav..." }, del { "Delete selected" }, refresh { "Refresh" }, use[3];
-    juce::TextButton getModel { "Download real voice model" };
+    juce::TextButton getModel { "Repair: download voice model" };
     std::unique_ptr<juce::FileChooser> chooser; int sel = 0, scroll = 0; static constexpr int rowsShown = 8;
     juce::CriticalSection mLock; ModelStatus mStatus; juce::uint32 mLastPoll = 0; std::atomic<bool> mPolling { false };
     ModelStatus modelCopy() { const juce::ScopedLock sl (mLock); return mStatus; }
@@ -665,11 +665,11 @@ struct VoicesPage : Page
         {
             auto m = modelCopy();
             juce::String t;
-            if (m.installed || m.state == "done") t = "Real voice model installed.";
+            if (m.installed || m.state == "done") t = "Real voice model: installed (ships with the plugin, works offline).";
             else if (m.state == "downloading")
                 t = juce::String (m.step == "code" ? "Downloading code" : "Downloading model") + (m.total > 0 ? ": " + juce::String (juce::roundToInt (100.0 * (double) m.done / (double) m.total)) + " %  (" + juce::String ((double) m.done / 1.0e9, 2) + " of " + juce::String ((double) m.total / 1.0e9, 2) + " GB)" : "...");
             else if (m.state == "error") t = "Download stopped: " + m.error + " (press the button to resume)";
-            else t = "Real voices need the SoulX-Singer model (a few GB, downloaded once).";
+            else t = "Voice model file is missing from this install. Reinstall with the full installer, or press the button (a few GB).";
             label (g, t, { 886, 462, 360, 32 }, m.state == "error" ? orange : mute, 11.0f, false);
             if (m.state == "downloading" && m.total > 0)
             {
@@ -694,7 +694,7 @@ struct VoicesPage : Page
                 mPolling = false; });
         }
         std::uint64_t h = 11; auto v = p.getVoices(); hashIn (h, (double) v.size()); hashIn (h, sel); hashIn (h, scroll);
-        { auto m = modelCopy(); hashIn (h, (double) m.done / 1.0e6); hashIn (h, (double) m.state.hashCode()); hashIn (h, m.installed ? 1 : 0); }
+        { auto m = modelCopy(); getModel.setVisible (! (m.installed || m.state == "done")); hashIn (h, (double) m.done / 1.0e6); hashIn (h, (double) m.state.hashCode()); hashIn (h, m.installed ? 1 : 0); }
         for (auto& x : v) { hashIn (h, (double) x.id.hashCode()); hashIn (h, x.clips); }
         hashIn (h, (double) p.statusText().hashCode()); for (auto& id : p.getVoiceIds()) hashIn (h, (double) id.hashCode());
         if (h != lastSig) { lastSig = h; repaint(); }

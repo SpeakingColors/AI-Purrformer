@@ -1,0 +1,88 @@
+# Builds the FULL OFFLINE bundle: plugin + engine + SoulX code + model weights + starter voices + Python wheels.
+# Run by hand: Actions, "Package offline bundle", Run workflow. UNTESTED: first run will probably need fixes.
+name: Package offline bundle
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Name for this bundle, e.g. cpu, rocm, cuda"
+        default: cpu
+      torch_index:
+        description: "PyTorch wheel index (cpu: https://download.pytorch.org/whl/cpu)"
+        default: https://download.pytorch.org/whl/cpu
+permissions:
+  contents: write
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, name: linux }
+          - { os: windows-latest, name: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Linux build dependencies
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev
+      - name: Build the plugin
+        run: |
+          cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build plugin/build --config Release --parallel 4
+      - name: Assemble
+        shell: bash
+        run: |
+          mkdir -p dist/engine
+          cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
+          cp -r engine/purrformer engine/third_party engine/requirements.txt engine/requirements-runtime.txt dist/engine/
+          find dist -name __pycache__ -prune -exec rm -rf {} \; || true
+          cp scripts/install.sh scripts/install.bat docs/BUILD.md dist/
+          cp LICENSE dist/ || true
+      - name: Add the model weights (about 3 GB)
+        shell: bash
+        run: |
+          mkdir -p dist/engine/models/SoulX-Singer
+          curl -fL --retry 5 -o dist/engine/models/SoulX-Singer/model.pt \
+            https://huggingface.co/Soul-AILab/SoulX-Singer/resolve/main/model.pt
+          ls -l dist/engine/models/SoulX-Singer/model.pt
+      - name: Add starter voices
+        shell: bash
+        run: |
+          mkdir -p dist/engine/bundled_voices
+          if curl -fsL -o vp.zip "https://github.com/${{ github.repository }}/releases/download/voices-v1/voices-vocalset.zip"; then
+            unzip -q vp.zip -d dist/engine/bundled_voices
+          else
+            echo "no voice pack release yet (run 'Build voice pack' first)"; exit 1
+          fi
+      - name: Add NLTK data (so g2p_en needs no internet)
+        shell: bash
+        run: |
+          pip install nltk
+          python -m nltk.downloader -d dist/engine/nltk_data cmudict averaged_perceptron_tagger averaged_perceptron_tagger_eng
+      - name: Download every Python wheel for offline install
+        shell: bash
+        run: |
+          pip download -d dist/wheelhouse -r engine/requirements.txt -r engine/requirements-runtime.txt
+          pip download -d dist/wheelhouse torch torchaudio --index-url "${{ inputs.torch_index }}" --extra-index-url https://pypi.org/simple
+          du -sh dist/wheelhouse
+      - name: Zip and split (release files are limited to 2 GB each)
+        shell: bash
+        run: |
+          name="AI-Purrformer-${{ matrix.name }}-${{ inputs.variant }}"
+          python -c "import shutil;shutil.make_archive('$name','zip','dist')"
+          split -b 1900m -d "$name.zip" "$name.zip.part"
+          rm "$name.zip"
+          ls -l
+      - name: Publish as release files
+        shell: bash
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          tag="bundle-${{ inputs.variant }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Offline bundle ${{ inputs.variant }}" --notes "Download ALL parts for your OS, join them (cat on Linux, copy /b on Windows) into one zip, unzip, run install."
+          gh release upload "$tag" AI-Purrformer-*.part* --clobber

@@ -1,0 +1,13 @@
+# Packages the real-voice backend needs. torch and torchaudio are installed separately per GPU type
+# (see .github/workflows/package.yml). Versions are NOT pinned yet: SoulX pins torch 2.2.0 but our
+# target GPU needs a newer ROCm build; this must be tested on real hardware.
+numpy
+scipy
+librosa
+soundfile
+tqdm
+omegaconf
+accelerate
+transformers
+g2p_en
+nltk

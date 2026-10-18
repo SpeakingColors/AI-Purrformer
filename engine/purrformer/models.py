@@ -1,20 +1,28 @@
-"""First-run download of the SoulX-Singer code and weights, with progress. AGPL-3.0.
+"""Where the SoulX-Singer code and weights live, and a repair download. AGPL-3.0.
 
-Both are Apache-2.0 (checked 2026-10-18 on their pages). Files go to the models folder
-(PURRFORMER_MODELS or ~/.local/share/purrformer/models). Downloads resume after a break.
-This only fetches files. Python packages (torch etc.) are a separate step.
+Everything needed to sing ships INSIDE the installer, so it works offline:
+  code     engine/third_party/SoulX-Singer/soulxsinger   (vendored, Apache-2.0)
+  weights  engine/models/SoulX-Singer/model.pt            (put there by the packaging workflow)
+The download below is only a repair button for when the weights file is missing. It resumes after a break.
+Lookup order for both: PURRFORMER_SOULX_DIR, the bundled folders, then the user models folder.
 """
 import os
-import shutil
 import threading
 import urllib.request
-import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
-CODE_URL = "https://github.com/Soul-AILab/SoulX-Singer/archive/refs/heads/main.zip"
 WEIGHTS_URL = "https://huggingface.co/Soul-AILab/SoulX-Singer/resolve/main/model.pt"
 WEIGHTS_REL = Path("pretrained_models/SoulX-Singer/model.pt")
+CONFIG_REL = Path("soulxsinger/config/soulxsinger.yaml")
+ENGINE_DIR = Path(__file__).resolve().parents[1]
+
+
+def setup_env() -> None:
+    """Use the bundled NLTK data (g2p_en wants it) so nothing is fetched from the internet."""
+    d = ENGINE_DIR / "nltk_data"
+    if d.is_dir():
+        os.environ.setdefault("NLTK_DATA", str(d))
 
 
 def models_dir() -> Path:
@@ -25,13 +33,27 @@ def models_dir() -> Path:
     return Path(base) / "purrformer" / "models"
 
 
-def soulx_dir() -> Path:
-    return models_dir() / "SoulX-Singer"
+def code_dir() -> Optional[Path]:
+    """Folder that contains the `soulxsinger` package."""
+    env = os.environ.get("PURRFORMER_SOULX_DIR")
+    for d in ([Path(env)] if env else []) + [ENGINE_DIR / "third_party" / "SoulX-Singer"]:
+        if (d / CONFIG_REL).is_file():
+            return d
+    return None
+
+
+def weights_path() -> Optional[Path]:
+    env = os.environ.get("PURRFORMER_SOULX_DIR")
+    for p in ([Path(env) / WEIGHTS_REL] if env else []) + [
+            ENGINE_DIR / "models" / "SoulX-Singer" / "model.pt",
+            models_dir() / "model.pt"]:
+        if p.is_file():
+            return p
+    return None
 
 
 def is_installed() -> bool:
-    d = soulx_dir()
-    return (d / WEIGHTS_REL).is_file() and (d / "soulxsinger" / "config" / "soulxsinger.yaml").is_file()
+    return code_dir() is not None and weights_path() is not None
 
 
 def _fetch(url: str, dest: Path, progress: Callable[[int, int], None], opener=urllib.request.urlopen) -> None:
@@ -62,35 +84,11 @@ def _fetch(url: str, dest: Path, progress: Callable[[int, int], None], opener=ur
     part.replace(dest)
 
 
-def _unzip_code(zpath: Path, target: Path) -> None:
-    """Extract the GitHub zip, dropping its single top folder. Refuses paths that escape the target."""
-    tmp = target.with_name(target.name + ".tmp")
-    shutil.rmtree(tmp, ignore_errors=True)
-    with zipfile.ZipFile(zpath) as z:
-        for info in z.infolist():
-            parts = Path(info.filename).parts[1:]
-            if not parts:
-                continue
-            out = (tmp.joinpath(*parts)).resolve()
-            if tmp.resolve() not in out.parents and out != tmp.resolve():
-                raise IOError("unsafe path in zip")
-            if info.is_dir():
-                out.mkdir(parents=True, exist_ok=True)
-            else:
-                out.parent.mkdir(parents=True, exist_ok=True)
-                with z.open(info) as s, open(out, "wb") as d:
-                    shutil.copyfileobj(s, d)
-    keep = target / WEIGHTS_REL
-    if keep.exists():  # keep downloaded weights when refreshing the code
-        (tmp / WEIGHTS_REL).parent.mkdir(parents=True, exist_ok=True)
-        keep.replace(tmp / WEIGHTS_REL)
-    shutil.rmtree(target, ignore_errors=True)
-    tmp.replace(target)
-
-
 class Downloader:
-    def __init__(self, code_url: str = CODE_URL, weights_url: str = WEIGHTS_URL, opener=urllib.request.urlopen):
-        self.code_url, self.weights_url, self.opener = code_url, weights_url, opener
+    """Repair only: fetches model.pt into the user models folder if no copy is found."""
+
+    def __init__(self, weights_url: str = WEIGHTS_URL, opener=urllib.request.urlopen):
+        self.weights_url, self.opener = weights_url, opener
         self._lock = threading.Lock()
         self._state = {"state": "idle", "step": "", "done": 0, "total": 0, "error": ""}
         self._thread: Optional[threading.Thread] = None
@@ -108,11 +106,10 @@ class Downloader:
             self._state.update(kw)
 
     def start(self) -> bool:
-        """Start in the background. False if already running."""
         with self._lock:
             if self._thread and self._thread.is_alive():
                 return False
-            self._state = {"state": "downloading", "step": "code", "done": 0, "total": 0, "error": ""}
+            self._state = {"state": "downloading", "step": "weights", "done": 0, "total": 0, "error": ""}
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
         return True
@@ -123,17 +120,8 @@ class Downloader:
 
     def _run(self):
         try:
-            d = soulx_dir()
-            prog = lambda g, t: self._set(done=g, total=t)
-            if not (d / "soulxsinger" / "config" / "soulxsinger.yaml").is_file():
-                self._set(step="code", done=0, total=0)
-                z = models_dir() / "code.zip"
-                _fetch(self.code_url, z, prog, self.opener)
-                _unzip_code(z, d)
-                z.unlink(missing_ok=True)
-            if not (d / WEIGHTS_REL).is_file():
-                self._set(step="weights", done=0, total=0)
-                _fetch(self.weights_url, d / WEIGHTS_REL, prog, self.opener)
+            if weights_path() is None:
+                _fetch(self.weights_url, models_dir() / "model.pt", lambda g, t: self._set(done=g, total=t), self.opener)
             self._set(state="done", step="")
         except Exception as exc:  # shown to the user; a rerun resumes
             self._set(state="error", error=str(exc))

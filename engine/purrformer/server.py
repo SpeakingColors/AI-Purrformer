@@ -4,11 +4,12 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from . import backends
 from .job import SingJob
 from .midi import parse_midi
-from .models import downloader
+from .models import downloader, setup_env
 from .render import render_job
 from .voicebank import RIGHTS, VoiceBank, VoiceError, default_root
 from .wav import to_wav_bytes
 
+setup_env()
 app = FastAPI(title="AI Purrformer engine")
 bank = VoiceBank(default_root())
 try:  # voices shipped with the plugin install themselves on first start

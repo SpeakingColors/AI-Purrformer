@@ -26,3 +26,6 @@ Every push builds a Windows plugin on GitHub.
 5. Load **AI Purrformer** as an instrument in your DAW and follow steps 5 above.
 
 Only the built-in test voices (tone backend) work until the real voice backend is tested on your GPU.
+
+## Full offline bundle (for releases)
+Run the workflow **Package offline bundle** (Actions tab). It makes, per OS, a multi-part zip with the plugin, engine, SoulX code, model weights, starter voices and every Python wheel. On the user's machine: join the parts, unzip, run `install.sh` or `install.bat`. No internet is needed at any step. Run **Build voice pack** first, once.

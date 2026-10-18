@@ -1,7 +1,7 @@
 """SoulX-Singer backend (real singing voices). AGPL-3.0 for this file; SoulX-Singer has its own licence.
 
 UNTESTED ON REAL WEIGHTS: written from reading SoulX-Singer's cli/inference.py. Needs a GPU test.
-Setup: clone SoulX-Singer, download its weights, set PURRFORMER_SOULX_DIR to the clone folder.
+Code is vendored in engine/third_party and the weights ship in the installer (see models.py), so it works offline.
 A voice needs: a clip (wav) AND `prompt.json` next to it, the SoulX metadata that describes the clip
 (lyrics, notes). SoulX's preprocess tools make that file (see docs/VOICE-SOURCES.md).
 """
@@ -14,14 +14,10 @@ from typing import Optional
 import numpy as np
 
 from ..job import SingJob
+from .. import models
 from ..voicebank import Voice, VoiceError, default_root
 from .base import Backend
 from .soulx_meta import job_to_segments
-
-MODEL_REL = Path("pretrained_models/SoulX-Singer/model.pt")
-CONFIG_REL = Path("soulxsinger/config/soulxsinger.yaml")
-PHONESET_REL = Path("soulxsinger/utils/phoneme/phone_set.json")
-
 
 def _resample(a: np.ndarray, sr_from: int, sr_to: int) -> np.ndarray:
     if sr_from == sr_to or len(a) == 0:
@@ -39,22 +35,14 @@ class SoulXBackend(Backend):
         self._cfg = None
         self._proc = None
 
-    @staticmethod
-    def root() -> Optional[Path]:
-        v = os.environ.get("PURRFORMER_SOULX_DIR")
-        if v:
-            return Path(v)
-        from ..models import soulx_dir  # the folder the first-run download fills
-        return soulx_dir()
-
     def available(self) -> bool:
-        r = self.root()
-        if not r or not (r / MODEL_REL).is_file():
+        code = models.code_dir()
+        if code is None or models.weights_path() is None:
             return False
         try:
             import importlib.util
-            if str(r) not in sys.path:
-                sys.path.insert(0, str(r))
+            if str(code) not in sys.path:
+                sys.path.insert(0, str(code))
             return all(importlib.util.find_spec(m) for m in ("torch", "soundfile", "soulxsinger", "g2p_en"))
         except Exception:
             return False
@@ -67,15 +55,15 @@ class SoulXBackend(Backend):
         from soulxsinger.models.soulxsinger import SoulXSinger
         from soulxsinger.utils.data_processor import DataProcessor
         from soulxsinger.utils.file_utils import load_config
-        r = self.root()
-        cfg = load_config(str(r / CONFIG_REL))
+        code = models.code_dir()
+        cfg = load_config(str(code / models.CONFIG_REL))
         self._device = "cuda" if torch.cuda.is_available() else "cpu"  # ROCm also reports "cuda"
         model = SoulXSinger(cfg).to(self._device)
-        ckpt = torch.load(str(r / MODEL_REL), weights_only=False, map_location="cpu")
+        ckpt = torch.load(str(models.weights_path()), weights_only=False, map_location="cpu")
         model.load_state_dict(ckpt["state_dict"], strict=True)
         model.eval().to(self._device)
         self._proc = DataProcessor(hop_size=cfg.audio.hop_size, sample_rate=cfg.audio.sample_rate,
-                                   phoneset_path=str(r / PHONESET_REL), device=self._device)
+                                   phoneset_path=str(code / "soulxsinger/utils/phoneme/phone_set.json"), device=self._device)
         self._model, self._cfg = model, cfg
 
     def _prompt_for(self, voice: Voice):

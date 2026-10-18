@@ -35,5 +35,11 @@ The cloud workspace cannot download datasets, so no real voice is bundled. You d
 - CC BY 4.0 allows redistribution with credit; the credit line is stored with each voice and must be shown in the app's About page (TODO).
 - Not bundled: the SoulX-Singer model weights (several GB). Plan: the engine downloads them on first run with a progress bar (TODO).
 
-## First-run model download (added 2026-10-18)
-Voices page has a **Download real voice model** button with a progress bar. The engine fetches the SoulX-Singer code (GitHub zip) and `model.pt` (Hugging Face, Apache-2.0 per its page) into `~/.local/share/purrformer/models` (`PURRFORMER_MODELS` to change). It resumes after a break. Endpoints: `GET /models`, `POST /models/download`. Tested against a local fake server (full download, resume, error, unsafe zip), NOT against the real URLs. Still missing: installing the Python packages (torch for ROCm, etc.), which needs your GPU machine to get right.
+## Offline by design (changed 2026-10-18)
+Installers must work with no internet. So nothing is fetched at run time:
+- SoulX-Singer code is copied into the repo (`engine/third_party/SoulX-Singer`, Apache-2.0, notice included).
+- Model weights (`model.pt`, about 3 GB) are put into the full bundle by the **Package offline bundle** workflow.
+- Starter voices, NLTK word data (for English pronunciation) and all Python wheels are in the bundle too.
+- The Voices page button **Repair: download voice model** only shows if `model.pt` is missing.
+- Found while checking: SoulX's singing voice conversion (not used by us) loads `openai/whisper-base` from the internet. Our synthesis path does not.
+- Limits, honestly: the bundle is several GB and is split into 1.9 GB release parts (GitHub's limit is 2 GB per file). It still needs Python 3.10+ installed on the machine. A real one-click installer (Inno Setup on Windows, AppImage or Flatpak on Linux) is a later step. The workflow is untested, and the torch build for the RX 9070 XT is unverified.
