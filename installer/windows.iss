@@ -48,3 +48,7 @@ Name: "{userstartup}\AI Purrformer Engine"; Filename: "{app}\start-engine.bat"; 
 [Run]
 Filename: "{app}\MANUAL.txt"; Description: "Open the quick manual"; Flags: postinstall shellexec skipifsilent
 Filename: "{app}\start-engine.bat"; Description: "Start the engine now"; Flags: postinstall nowait skipifsilent
+
+[UninstallDelete]
+; runtime leftovers (python caches, logs) so the uninstaller really frees the gigabytes
+Type: filesandordirs; Name: "{app}"
