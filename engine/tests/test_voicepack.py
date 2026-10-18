@@ -47,12 +47,12 @@ def test_install_pack_folder(tmp_path):
 def test_vocalset_layout(tmp_path):
     z = tmp_path / "vs.zip"
     with zipfile.ZipFile(z, "w") as zf:
-        zf.writestr("data_by_singer/female1/long_tones/straight/f1_long_straight_a.wav", tone(262.0))
-        zf.writestr("data_by_singer/male2/long_tones/straight/m2_long_straight_a.wav", tone(130.8))
-        zf.writestr("data_by_singer/male2/long_tones/straight/m2_long_straight_e.wav", tone(130.8))
+        zf.writestr("data_by_vowel/a/f1_long_straight_a.wav", tone(262.0))
+        zf.writestr("data_by_vowel/a/m2_long_straight_a.wav", tone(130.8))
+        zf.writestr("data_by_vowel/e/m2_long_straight_e.wav", tone(130.8))
     bank = VoiceBank(tmp_path / "bank")
     vs = voicepack.install_vocalset(z, bank)
-    assert sorted(v.name for v in vs) == ["VocalSet female1", "VocalSet male2"]
+    assert sorted(v.name for v in vs) == ["VocalSet f1", "VocalSet m2"]
     assert all(v.rights == "cc-by" and "CC BY 4.0" in v.attribution for v in vs)
     assert len(vs[0].clips) == 1
 
@@ -68,8 +68,8 @@ def test_bad_pack(tmp_path):
 def test_build_then_bundled_install_is_idempotent(tmp_path):
     z = tmp_path / "vs.zip"
     with zipfile.ZipFile(z, "w") as zf:
-        zf.writestr("x/female1/long_tones/straight/f1_long_straight_a.wav", tone(262.0, 10.0))
-        zf.writestr("x/female1/long_tones/forte/f1_long_forte_a.wav", tone(262.0, 4.0))
+        zf.writestr("x/data_by_vowel/a/f1_long_straight_a.wav", tone(262.0, 10.0))
+        zf.writestr("x/data_by_vowel/a/f1_long_forte_a.wav", tone(262.0, 4.0))
     bundled = tmp_path / "engine" / "bundled_voices" / "vocalset"
     assert voicepack.build_vocalset_pack(z, bundled) == 1
     bank = VoiceBank(tmp_path / "bank")
@@ -82,3 +82,12 @@ def test_build_then_bundled_install_is_idempotent(tmp_path):
 
 def test_no_bundled_folder_is_fine(tmp_path):
     assert voicepack.install_bundled(VoiceBank(tmp_path / "b"), tmp_path / "nope") == []
+
+
+def test_real_vocalset_names():
+    names = ["data_by_vowel/u/f1_scales_c_fast_piano_u.wav", "data_by_vowel/a/m8_long_trillo_a.wav",
+             "data_by_vowel/a/m8_long_straight_a.wav", "data_by_vowel/a/f9_scales_belt_a.wav",
+             "__MACOSX/data_by_vowel/a/._m8_long_straight_a.wav", "data_by_vowel/a/f2_long_forte_e.wav",
+             "readme-anon.txt"]
+    got = voicepack.vocalset_clips(names, "a")
+    assert got == {"m8": ["data_by_vowel/a/m8_long_straight_a.wav", "data_by_vowel/a/m8_long_trillo_a.wav"]}

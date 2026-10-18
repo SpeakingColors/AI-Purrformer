@@ -114,7 +114,21 @@ def _source(path: Path):
         names = [str(p.relative_to(path)).replace("\\", "/") for p in path.rglob("*") if p.is_file()]
         return (lambda n: (path / n).read_bytes()), names
     z = zipfile.ZipFile(path)
-    return (lambda n: z.read(n)), [n for n in z.namelist() if not n.endswith("/")]
+
+    def read(n):
+        try:
+            return z.read(n)
+        except zipfile.BadZipFile:  # VocalSet's zip trips Python's reader; other unzip tools cope
+            import shutil
+            import subprocess
+            for cmd in (["unzip", "-p", str(path), n], ["tar", "-xOf", str(path), n]):
+                if shutil.which(cmd[0]):
+                    r = subprocess.run(cmd, capture_output=True)
+                    if r.stdout:
+                        return r.stdout
+            raise
+
+    return read, [n for n in z.namelist() if not n.endswith("/")]
 
 
 def install_pack(path: Path, bank: VoiceBank) -> list:
@@ -135,23 +149,40 @@ def install_pack(path: Path, bank: VoiceBank) -> list:
     return out
 
 
-_SINGER = re.compile(r"(?:^|/)((?:fe)?male\d+)/", re.I)
+# Real VocalSet names (seen in the zip, 2026-10-18): data_by_vowel/a/f1_long_straight_a.wav
+_CLIP = re.compile(r"(?:^|/)([fm]\d+)_(.+)_([aeiou])\.wav$", re.I)
+_PREFER = ("straight", "forte", "pp", "messa", "vibrato")  # steadier long tones first
+
+
+def vocalset_clips(names, vowel: str = "a") -> dict:
+    """singer -> long-tone clip names of that vowel, steadiest technique first. Skips macOS junk."""
+    out: dict = {}
+    for n in names:
+        if "__MACOSX" in n or "/._" in n:
+            continue
+        m = _CLIP.search(n)
+        if m and m.group(3).lower() == vowel and m.group(2).lower().startswith("long"):
+            out.setdefault(m.group(1).lower(), []).append(n)
+
+    def rank(n):
+        t = _CLIP.search(n).group(2).lower()
+        return next((i for i, k in enumerate(_PREFER) if k in t), len(_PREFER)), n
+
+    return {k: sorted(v, key=rank) for k, v in sorted(out.items())}
 
 
 def install_vocalset(path: Path, bank: VoiceBank, vowel: str = "a", per_voice: int = 2) -> list:
     """One voice per singer, built from that singer's sustained '<vowel>' long-tone clips."""
     read, names = _source(Path(path))
-    singers: dict = {}
-    for n in sorted(names):
-        m = _SINGER.search(n)
-        if m and n.lower().endswith(".wav") and "long" in n.lower() and re.search(rf"_{vowel}\.wav$", n.lower()):
-            singers.setdefault(m.group(1).lower(), []).append(n)
     out = []
-    for s, files in sorted(singers.items()):
+    for s, files in vocalset_clips(names, vowel).items():
         good = []
         for f in files:
-            data = read(f)
-            x, sr = read_wav(data)
+            try:
+                data = read(f)
+                x, sr = read_wav(data)
+            except (VoiceError, OSError, zipfile.BadZipFile):
+                continue
             if MIN_CLIP_S <= len(x) / sr <= MAX_CLIP_S and estimate_midi(x, sr) is not None:
                 good.append(data)
             if len(good) >= per_voice:
@@ -168,18 +199,16 @@ def build_vocalset_pack(path: Path, outdir: Path, vowel: str = "a", per_voice: i
     """Make a small bundle-ready pack (pack.json + short wavs) from the big VocalSet zip. Used by CI."""
     from .wav import to_wav_bytes
     read, names = _source(Path(path))
-    singers: dict = {}
-    for n in sorted(names):
-        m = _SINGER.search(n)
-        if m and n.lower().endswith(".wav") and "long" in n.lower() and re.search(rf"_{vowel}\.wav$", n.lower()):
-            singers.setdefault(m.group(1).lower(), []).append(n)
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     voices = []
-    for s, files in sorted(singers.items()):
+    for s, files in vocalset_clips(names, vowel).items():
         made = []
         for f in files:
-            x, sr = read_wav(read(f))
+            try:
+                x, sr = read_wav(read(f))
+            except (VoiceError, OSError, zipfile.BadZipFile):
+                continue
             x = x[: int(max_s * sr)]
             if len(x) / sr >= MIN_CLIP_S and estimate_midi(x, sr) is not None:
                 fn = f"{s}-{len(made) + 1}.wav"

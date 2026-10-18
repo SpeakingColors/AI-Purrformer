@@ -36,10 +36,16 @@ jobs:
           msg = f"{len(names)} files, {len(wavs)} wav. Samples: " + " | ".join(wavs[:12]) + " || folders: " + " | ".join(list(tops)[:15])
           print("::notice title=VocalSet zip layout::" + msg.replace("%", "%25").replace("\n", "%0A"))
           PY
+      - name: Extract only the long-tone "a" clips (system unzip, python's reader fails on this zip)
+        run: |
+          unzip -q -o VocalSet.zip 'data_by_vowel/a/*_long_*' -d vs || echo "unzip warnings ignored"
+          n=$(find vs -name '*.wav' | wc -l)
+          echo "::notice title=extracted::$n long-tone a clips, first: $(find vs -name '*.wav' | head -5 | tr '\n' ' ')"
+          test "$n" -gt 0
       - name: Cut the starter pack
         run: |
           cd engine
-          if ! python -m purrformer.voicepack build-vocalset ../VocalSet.zip ../pack/vocalset 2> ../err.txt; then
+          if ! python -m purrformer.voicepack build-vocalset ../vs ../pack/vocalset 2> ../err.txt; then
             echo "::error title=cut failed::$(tail -c 600 ../err.txt | tr '\n' ' ')"
             exit 1
           fi
