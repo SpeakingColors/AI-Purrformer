@@ -14,3 +14,15 @@ Not verified yet, needs your machine:
 - Bitwig Flatpak finding `~/.vst3`, and whether the plugin's libraries (libcurl, freetype, ALSA) resolve inside the Flatpak runtime. If Bitwig does not list it, say so and we switch to static linking or the Flatpak extension.
 - Studio One loading the VST3.
 - Real voices: the engine only has the built-in test voices until the ROCm test and the SoulX-Singer adapter are done.
+
+## Test on Windows now (no Linux needed)
+
+Every push builds a Windows plugin on GitHub.
+
+1. On the repo page, open **Actions**, click the latest green run.
+2. Download the artifact **AI-Purrformer-windows** and unzip it.
+3. Copy `AI Purrformer.vst3` to `C:\Program Files\Common Files\VST3`.
+4. Install Python 3.10+ (tick "Add python to PATH"). Open a terminal in the unzipped `engine` folder and run `scripts\run-engine.bat` from the repo, or: `python -m venv .venv`, `.venv\Scripts\activate`, `pip install -r requirements.txt`, `python -m uvicorn purrformer.server:app --port 8765`.
+5. Load **AI Purrformer** as an instrument in your DAW and follow steps 5 on above.
+
+Only the built-in test voices (tone backend) work until the real voice backend is tested on your GPU.

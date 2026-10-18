@@ -1,0 +1,69 @@
+name: build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  engine-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r engine/requirements.txt -r engine/requirements-dev.txt
+      - run: python -m pytest -q
+        working-directory: engine
+
+  plugin:
+    needs: engine-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, name: linux }
+          - { os: windows-latest, name: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Linux build dependencies
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev xvfb
+      - name: Configure
+        run: cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build plugin/build --config Release --parallel 4
+      - name: Start the engine
+        shell: bash
+        run: |
+          pip install -r engine/requirements.txt
+          cd engine
+          python -m uvicorn purrformer.server:app --host 127.0.0.1 --port 8765 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/health && break; sleep 1; done
+      - name: Self test (capture, engine round trip, host-synced playback)
+        shell: bash
+        run: |
+          exe=$(find plugin/build -name "purr_selftest*" -type f \( -perm -u+x -o -name "*.exe" \) | grep -v "\.a$" | head -1)
+          echo "running $exe"
+          "$exe"
+      - name: Collect the plugin
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
+          cp -r engine dist/engine
+          rm -rf dist/engine/.venv dist/engine/.pytest_cache
+          cp docs/BUILD.md dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Purrformer-${{ matrix.name }}
+          path: dist

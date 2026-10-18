@@ -29,8 +29,14 @@ juce_add_plugin(AIPurrformer
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 target_sources(AIPurrformer PRIVATE ${PURR_SOURCES})
+if(UNIX AND NOT APPLE)
+  set(PURR_CURL JUCE_USE_CURL=1)   # Windows and macOS use their native HTTP stacks
+else()
+  set(PURR_CURL JUCE_USE_CURL=0)
+endif()
+
 target_compile_definitions(AIPurrformer PUBLIC
-  JUCE_WEB_BROWSER=0 JUCE_USE_CURL=1 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0 JUCE_REPORT_APP_USAGE=0)
+  JUCE_WEB_BROWSER=0 ${PURR_CURL} JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0 JUCE_REPORT_APP_USAGE=0)
 target_link_libraries(AIPurrformer
   PRIVATE juce::juce_audio_utils juce::juce_audio_formats juce::juce_audio_processors juce::juce_gui_basics juce::juce_events
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
@@ -38,7 +44,7 @@ target_link_libraries(AIPurrformer
 # Headless self test: needs the engine running on 127.0.0.1:8765.
 juce_add_console_app(purr_selftest PRODUCT_NAME "purr_selftest" NEEDS_CURL TRUE)
 target_sources(purr_selftest PRIVATE tests/selftest.cpp ${PURR_SOURCES})
-target_compile_definitions(purr_selftest PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=1
+target_compile_definitions(purr_selftest PUBLIC JUCE_WEB_BROWSER=0 ${PURR_CURL}
   JUCE_PLUGINHOST_VST3=0 JUCE_MODAL_LOOPS_PERMITTED=1 JucePlugin_Name="AI Purrformer")
 target_link_libraries(purr_selftest PRIVATE juce::juce_audio_utils juce::juce_audio_formats juce::juce_audio_processors juce::juce_gui_basics juce::juce_events
   PUBLIC juce::juce_recommended_config_flags)
