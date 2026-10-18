@@ -12,7 +12,8 @@
 - [x] MIDI file to notes (tempo, lyrics meta events, drums skipped)
 - [ ] Melody input to the real engine (see MELODY-SOURCES.md)
 - [ ] Lyrics timing from a spoken take (forced alignment)
-- [ ] JUCE plugin skeleton (VST3), then CLAP
+- [x] JUCE plugin v0.1 (VST3 + Standalone): MIDI capture, engine round trip, host-synced playback, 4 live screens, selftest passing
+- [ ] Plugin: CLAP build, tempo-change warning, per-note lyrics, real-host tests (Bitwig Flatpak, Studio One)
 - [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics, Voices pages), kept in the Claude Design canvas "AI Purrformer UI"
 - [x] Plugin UI mockup v2: neon soda palette, original singer cat mascot with mic, icons, supersaw panel on Voice FX
 - [x] Robot-voice prototype (numpy): hard retune to MIDI, dry/wet vs clean voice. Measured on a synthetic voice only, NOT yet tuned by ear
