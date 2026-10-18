@@ -9,7 +9,8 @@ DAW (Bitwig / Studio One)
         ├─ 1. melody: MIDI notes / guide vocal (NOT the user's pitch)
         ├─ 2. lyrics + timing
         ├─ 3. sing in the chosen voice (SoulX-Singer SVS/SVC candidate)
-        └─ 4. return audio
+        ├─ 4. FX: hard retune to MIDI (robot) + dirt, dry/wet vs clean voice
+        └─ 5. return audio
 ```
 
 ## Why split plugin and engine

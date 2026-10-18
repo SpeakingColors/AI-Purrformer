@@ -36,6 +36,7 @@ This is offline processing: render a clip, get audio back. It is not live. Live 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Install on Bazzite](docs/INSTALL-BAZZITE.md)
 - [Where the melody comes from](docs/MELODY-SOURCES.md)
+- [FX, inferred accompaniment, lyric AI](docs/FX-AND-LYRICS.md)
 - [Inspiration and borrowable ideas](docs/INSPIRATION.md)
 - [Roadmap](docs/ROADMAP.md)
 

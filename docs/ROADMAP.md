@@ -11,6 +11,9 @@
 - [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
 - [ ] Plugin UI mockup in cat-ui style
+- [ ] Robot-voice stage: hard retune to MIDI, dry/wet vs clean AI voice
+- [ ] Dirt section: saturation, tube, distortion, bitcrush, artifacts knob
+- [ ] Melody leads / voice leads toggle (ACE-Step Vocal2BGM test)
 - [ ] Lyric notepad (standalone first), local LLM helper
 - [ ] Flatpak packaging
 - [ ] Live mode: research only, no promise
