@@ -46,3 +46,16 @@ AMD's ROCm 6.4.4 matrix lists the RX 9070 XT with official PyTorch 2.6 support, 
 3. Second backend: RVC or DDSP-SVC (MIT, trained voices, lighter and better for repeated use).
 4. Do not build on archived projects as the only option. Plan to vendor or pin the version.
 5. Gate: whichever runs on ROCm PyTorch with the RX 9070 XT wins first.
+
+## SoulX-Singer adapter (written 2026-10-18, NOT run on real weights)
+
+Code: `engine/purrformer/backends/soulx_meta.py` (job to SoulX metadata, tested, no GPU needed) and `soulx.py` (model loading and inference, copied from the logic of SoulX's `cli/inference.py`, untested). Phoneme names were checked against SoulX's own `phone_set.json`: all English ARPAbet phones exist.
+
+How it is used: clone SoulX-Singer, download weights, then `PURRFORMER_SOULX_DIR=/path/to/SoulX-Singer`. Pick `soulx` as the backend.
+
+Things to know:
+- Each voice clip needs a `prompt.json` (its lyrics and notes, SoulX format) saved next to the clip. SoulX's preprocess tools make it (they need their own heavy install). Automating this on import is a TODO.
+- Mode used: `score` (notes from our MIDI), `auto_shift` on so pitches fit the voice range.
+- ROCm risks, all unverified: SoulX pins `torch==2.2.0` in its main requirements while its preprocess uses 2.10; an RX 9070 XT (gfx1201) needs a recent ROCm build, so we will install a newer ROCm torch and see if the model still loads. The code only says `"cuda"`, which ROCm torch also uses, so that part should be fine. `sageattention` (in the preprocess list) is CUDA-oriented and may not install on ROCm. FP16 is off by default here (`PURRFORMER_FP16=1` turns it on).
+- Segment length limit (we cut at 12 s) is a guess from the examples.
+- Licence: SoulX table above says Apache-2.0; confirm on the weights page before shipping anything.

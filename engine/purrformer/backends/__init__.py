@@ -1,4 +1,5 @@
 from .base import Backend
+from .soulx import SoulXBackend
 from .tone import ToneBackend
 
 _REGISTRY: dict[str, Backend] = {}
@@ -17,3 +18,4 @@ def all_backends() -> list[Backend]:
 
 
 register(ToneBackend())
+register(SoulXBackend())
