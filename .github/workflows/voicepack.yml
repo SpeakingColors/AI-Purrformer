@@ -25,10 +25,24 @@ jobs:
           PY
           curl -fL --retry 5 -o VocalSet.zip "$(cat url.txt)"
           ls -l VocalSet.zip
+      - name: Describe the zip (shows up as a note on the run)
+        run: |
+          python - <<'PY'
+          import zipfile, collections
+          z = zipfile.ZipFile("VocalSet.zip")
+          names = [n for n in z.namelist() if not n.endswith("/")]
+          wavs = [n for n in names if n.lower().endswith(".wav")]
+          tops = collections.Counter("/".join(n.split("/")[:3]) for n in names)
+          msg = f"{len(names)} files, {len(wavs)} wav. Samples: " + " | ".join(wavs[:12]) + " || folders: " + " | ".join(list(tops)[:15])
+          print("::notice title=VocalSet zip layout::" + msg.replace("%", "%25").replace("\n", "%0A"))
+          PY
       - name: Cut the starter pack
         run: |
           cd engine
-          python -m purrformer.voicepack build-vocalset ../VocalSet.zip ../pack/vocalset
+          if ! python -m purrformer.voicepack build-vocalset ../VocalSet.zip ../pack/vocalset 2> ../err.txt; then
+            echo "::error title=cut failed::$(tail -c 600 ../err.txt | tr '\n' ' ')"
+            exit 1
+          fi
           cd ..
           (cd pack && zip -r ../voices-vocalset.zip vocalset)
           ls -l voices-vocalset.zip
