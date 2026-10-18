@@ -6,8 +6,10 @@
 - [ ] Stem separation step (ACE-Step 1.5 idea, check license)
 - [ ] Test engine on RX 9070 XT with ROCm PyTorch in Ubuntu Distrobox
 - [ ] Confirm engine pick after ROCm test (Seed-VC first, RVC/DDSP-SVC second)
-- [ ] Engine server: /health and /convert
-- [ ] Melody input: MIDI notes + lyrics to engine (see MELODY-SOURCES.md)
+- [x] Engine server: /health, /sing, /midi/parse, job format, tone test backend, 10 tests passing
+- [ ] Real backend adapter (SoulX-Singer), needs the GPU machine
+- [x] MIDI file to notes (tempo, lyrics meta events, drums skipped)
+- [ ] Melody input to the real engine (see MELODY-SOURCES.md)
 - [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
 - [ ] Plugin UI mockup in cat-ui style
