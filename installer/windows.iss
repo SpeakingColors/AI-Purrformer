@@ -52,3 +52,17 @@ Filename: "{app}\start-engine.bat"; Description: "Start the engine now"; Flags: 
 [UninstallDelete]
 ; runtime leftovers (python caches, logs) so the uninstaller really frees the gigabytes
 Type: filesandordirs; Name: "{app}"
+
+[Code]
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  d: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    d := ExpandConstant('{%USERPROFILE}') + '\.local\share\purrformer';
+    if DirExists(d) then
+      if MsgBox('Also delete your saved voices and settings?' + #13#10 + d + #13#10#13#10 + 'Choose No to keep voices you made.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+        DelTree(d, True, True, True);
+  end;
+end;

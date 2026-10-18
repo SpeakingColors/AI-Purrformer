@@ -82,7 +82,7 @@ jobs:
           printf 'python311.zip\n.\n..\\engine\n..\\site-packages\nimport site\n' > dist/python/python311._pth
           pip install --target dist/site-packages -r engine/requirements.txt -r engine/requirements-runtime.txt
           pip install --target dist/site-packages torch torchaudio --index-url "${{ inputs.torch_index }}" --extra-index-url https://pypi.org/simple
-          printf '@echo off\r\ncd /d "%%~dp0engine"\r\n"%%~dp0python\\python.exe" -m uvicorn purrformer.server:app --host 127.0.0.1 --port 8765\r\npause\r\n' > dist/start-engine.bat
+          printf '@echo off\r\nset PYTHONDONTWRITEBYTECODE=1\r\ncd /d "%%~dp0engine"\r\n"%%~dp0python\\python.exe" -m uvicorn purrformer.server:app --host 127.0.0.1 --port 8765\r\npause\r\n' > dist/start-engine.bat
           du -sh dist/python dist/site-packages
       - name: Windows, build the .exe installer
         if: matrix.name == 'windows'
