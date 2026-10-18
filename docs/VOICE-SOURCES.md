@@ -28,3 +28,9 @@ The cloud workspace cannot download datasets, so no real voice is bundled. You d
 - VocalSet (CC BY 4.0): download the zip from its Zenodo page, then `python -m purrformer.voicepack vocalset VocalSet.zip`. It makes one voice per singer from sustained "ah" clips, sets rights `cc-by` with the attribution line, and writes the SoulX `prompt.json` itself (pitch found by the engine). Folder layout assumed: `.../female1/long_tones/.../f1_long_straight_a.wav`. UNVERIFIED against the real zip.
 - Your own pack: a folder or zip with `pack.json` (see `engine/purrformer/voicepack.py`), then `python -m purrformer.voicepack install my-pack.zip`.
 - Five extra synthetic test voices (Hollow, Warm, Bright, Choir-ish, Organ) are built in so the blend UI has something to mix today.
+
+## Bundled voices (the goal: install the plugin and the voices are already there)
+- Engine start installs every pack in `engine/bundled_voices/` (safe to repeat). So a release only has to ship that folder.
+- CI: run the workflow **Build voice pack** once (Actions tab). It downloads VocalSet on GitHub's servers, cuts a small starter pack (2 short clips per singer) and publishes it as release `voices-v1`. Every plugin build after that downloads it and puts it in `bundled_voices`.
+- CC BY 4.0 allows redistribution with credit; the credit line is stored with each voice and must be shown in the app's About page (TODO).
+- Not bundled: the SoulX-Singer model weights (several GB). Plan: the engine downloads them on first run with a progress bar (TODO).

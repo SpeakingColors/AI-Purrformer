@@ -62,6 +62,12 @@ jobs:
           cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
           cp -r engine dist/engine
           rm -rf dist/engine/.venv dist/engine/.pytest_cache
+          mkdir -p dist/engine/bundled_voices
+          if curl -fsL -o vp.zip "https://github.com/${{ github.repository }}/releases/download/voices-v1/voices-vocalset.zip"; then
+            unzip -q vp.zip -d dist/engine/bundled_voices
+          else
+            echo "no voice pack release yet, building without it"
+          fi
           cp docs/BUILD.md dist/ || true
           cp scripts/run-engine.bat dist/ || true
           cp scripts/run-engine.sh dist/ || true

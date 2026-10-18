@@ -63,3 +63,22 @@ def test_bad_pack(tmp_path):
     (tmp_path / "e").mkdir()
     with pytest.raises(VoiceError):
         voicepack.install_pack(tmp_path / "e", VoiceBank(tmp_path / "b"))
+
+
+def test_build_then_bundled_install_is_idempotent(tmp_path):
+    z = tmp_path / "vs.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("x/female1/long_tones/straight/f1_long_straight_a.wav", tone(262.0, 10.0))
+        zf.writestr("x/female1/long_tones/forte/f1_long_forte_a.wav", tone(262.0, 4.0))
+    bundled = tmp_path / "engine" / "bundled_voices" / "vocalset"
+    assert voicepack.build_vocalset_pack(z, bundled) == 1
+    bank = VoiceBank(tmp_path / "bank")
+    first = voicepack.install_bundled(bank, tmp_path / "engine" / "bundled_voices")
+    second = voicepack.install_bundled(bank, tmp_path / "engine" / "bundled_voices")
+    assert len(first) == 1 and first[0].id == second[0].id
+    assert len(bank._user_voices()) == 1 and len(bank._user_voices()[0].clips) == 2
+    assert (bank.root / first[0].id / "prompt.json").is_file()
+
+
+def test_no_bundled_folder_is_fine(tmp_path):
+    assert voicepack.install_bundled(VoiceBank(tmp_path / "b"), tmp_path / "nope") == []

@@ -1,0 +1,39 @@
+# Run by hand (Actions tab, "Build voice pack", Run workflow). Downloads VocalSet (CC BY 4.0) from Zenodo,
+# cuts a small starter pack and publishes it as a release asset. The plugin builds then bundle it.
+name: Build voice pack
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  pack:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r engine/requirements.txt
+      - name: Download VocalSet from Zenodo
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          rec = json.load(urllib.request.urlopen("https://zenodo.org/api/records/1442513"))
+          print("licence:", rec.get("metadata", {}).get("license"))
+          files = rec["files"]
+          for f in files: print(f.get("key") or f.get("filename"), f.get("size"))
+          f = next(f for f in files if (f.get("key") or f.get("filename")).lower().endswith(".zip"))
+          open("url.txt", "w").write(f["links"]["self"])
+          PY
+          curl -fL --retry 5 -o VocalSet.zip "$(cat url.txt)"
+          ls -l VocalSet.zip
+      - name: Cut the starter pack
+        run: |
+          cd engine
+          python -m purrformer.voicepack build-vocalset ../VocalSet.zip ../pack/vocalset
+          cd ..
+          (cd pack && zip -r ../voices-vocalset.zip vocalset)
+          ls -l voices-vocalset.zip
+      - name: Publish as release asset
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view voices-v1 >/dev/null 2>&1 || gh release create voices-v1 --title "Voice packs" --notes "Starter voices bundled into the plugin builds. VocalSet, CC BY 4.0, see attribution in the app."
+          gh release upload voices-v1 voices-vocalset.zip --clobber

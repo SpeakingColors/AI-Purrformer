@@ -93,7 +93,10 @@ def _install_voice(bank: VoiceBank, name, clips, rights, attribution, vowel=None
     voice = None
     for c in clips:
         if voice is None:
+            known = {v.id for v in bank.all_voices()}
             voice = bank.import_voice(name, c, rights, True, attribution, notes)
+            if voice.id in known:  # already installed (same first clip): do nothing, so reruns are safe
+                return voice
         elif len(voice.clips) < 8:
             try:
                 voice = bank.add_clip(voice.id, c)
@@ -161,8 +164,60 @@ def install_vocalset(path: Path, bank: VoiceBank, vowel: str = "a", per_voice: i
     return out
 
 
+def build_vocalset_pack(path: Path, outdir: Path, vowel: str = "a", per_voice: int = 2, max_s: float = 8.0) -> int:
+    """Make a small bundle-ready pack (pack.json + short wavs) from the big VocalSet zip. Used by CI."""
+    from .wav import to_wav_bytes
+    read, names = _source(Path(path))
+    singers: dict = {}
+    for n in sorted(names):
+        m = _SINGER.search(n)
+        if m and n.lower().endswith(".wav") and "long" in n.lower() and re.search(rf"_{vowel}\.wav$", n.lower()):
+            singers.setdefault(m.group(1).lower(), []).append(n)
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    voices = []
+    for s, files in sorted(singers.items()):
+        made = []
+        for f in files:
+            x, sr = read_wav(read(f))
+            x = x[: int(max_s * sr)]
+            if len(x) / sr >= MIN_CLIP_S and estimate_midi(x, sr) is not None:
+                fn = f"{s}-{len(made) + 1}.wav"
+                (outdir / fn).write_bytes(to_wav_bytes(x, sr))
+                made.append(fn)
+            if len(made) >= per_voice:
+                break
+        if made:
+            voices.append({"name": f"VocalSet {s}", "files": made, "vowel": vowel})
+    if not voices:
+        raise VoiceError("found no usable long-tone clips; is this the VocalSet zip?")
+    (outdir / "pack.json").write_text(json.dumps({
+        "name": "VocalSet starter", "rights": "cc-by", "attribution": VOCALSET_ATTRIBUTION,
+        "notes": "Sustained vowel clips from VocalSet. Good for timbre, not for diction.", "voices": voices}, indent=2))
+    return len(voices)
+
+
+def install_bundled(bank: VoiceBank, folder: Optional[Path] = None) -> list:
+    """Install every pack found in the bundled voices folder. Safe to run on every start."""
+    import os
+    folder = Path(folder or os.environ.get("PURRFORMER_BUNDLED") or Path(__file__).resolve().parents[1] / "bundled_voices")
+    out = []
+    if not folder.is_dir():
+        return out
+    for p in sorted(folder.iterdir()):
+        if (p.is_dir() and (p / "pack.json").is_file()) or p.suffix == ".zip":
+            try:
+                out += install_pack(p, bank)
+            except (VoiceError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                print(f"bundled pack {p.name} skipped: {exc}")
+    return out
+
+
 def main(argv=None) -> int:
     a = list(sys.argv[1:] if argv is None else argv)
+    if len(a) == 3 and a[0] == "build-vocalset":
+        print(f"{build_vocalset_pack(Path(a[1]), Path(a[2]))} voices written to {a[2]}")
+        return 0
     if len(a) != 2 or a[0] not in ("install", "vocalset"):
         print(__doc__)
         return 2

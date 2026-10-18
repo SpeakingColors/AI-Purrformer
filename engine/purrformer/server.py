@@ -10,6 +10,11 @@ from .wav import to_wav_bytes
 
 app = FastAPI(title="AI Purrformer engine")
 bank = VoiceBank(default_root())
+try:  # voices shipped with the plugin install themselves on first start
+    from .voicepack import install_bundled
+    install_bundled(bank)
+except Exception as exc:  # never stop the engine over voices
+    print(f"bundled voices skipped: {exc}")
 
 
 @app.get("/health")
