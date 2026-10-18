@@ -1,0 +1,62 @@
+AI PURRFORMER: QUICK MANUAL
+===========================
+
+THE IDEA
+You give it a melody as MIDI (and optional lyrics). It sings that melody with an AI voice that is
+in tune and on time. Your own voice is never used for pitch. Everything runs on your computer.
+The plugin (what you see in your DAW) talks to the Engine (the black window) on your computer.
+
+FIRST SONG (5 steps)
+1. Make an instrument track with AI Purrformer. Put a MIDI clip with ONE melody line on it
+   (one note at a time).
+2. In the plugin, press "Capture from host", press play in your DAW, let the clip play once,
+   then press "Stop capturing". You can also load a .mid file with "Open .mid...".
+3. Type words on the Lyrics tab (optional). The plugin counts syllables and tells you if the
+   words fit the notes.
+4. Press "Render" and wait for the status line to say it is done.
+5. Press play in your DAW. The singer follows the DAW position, so it stays in time.
+   If you change the tempo, capture and render again.
+
+THE FOUR TABS
+SING
+  Mode: "Melody leads" = your MIDI decides the notes (default). "Voice leads" = the voice decides.
+  Voices 1, 2, 3 with faders: mix up to three voices. Weights are normalised.
+  Blend: "Layer (choir)" sings with each voice and mixes them (works with any voice).
+         "One new voice (test)" blends the voices into one new voice (experimental).
+  Piano roll and waveform show your notes and the rendered audio.
+VOICE FX
+  Robot (autotune effect): Retune speed (left = natural glide, right = instant hard robot),
+    Dry/wet (left = clean voice, right = all robot).
+  Supersaw: Copies (3 to 9 stacked voices), Detune (up to 50 cents on the outer copies),
+    Spread (pan across left/right), Widen (extra side level), Stack mix.
+  Dirt: Drive (warm to heavy), Bitcrush, Artifacts (stutters, dropouts, buzz), Dirt mix.
+  Each effect has an On/Off switch. The little pictures move with the knobs.
+LYRICS
+  Notepad for your words with a syllable count against your notes.
+VOICES
+  List of voices. Click one, then "Use as voice 1/2/3".
+  "Import .wav...": add a clean clip of 1 to 60 seconds. You must tick that you own the voice or
+  have permission or a licence. Do not use other people's voices without permission.
+  "Delete selected" removes your own voices (not built-in ones).
+
+VOICES THAT COME WITH IT
+- Built-in test voices (synthetic tones): for checking that everything works.
+- Starter singers from VocalSet (CC BY 4.0): sustained vowel clips, good for voice colour, not for
+  clear words. Credit: VocalSet, Julia Wilkins, Prem Seetharaman, Alison Wahl, Bryan Pardo (ISMIR 2018).
+
+TIPS
+- One note at a time sounds best. With the real voice, overlapping notes are cut short so the singer
+  never sings two notes at once, and notes shorter than about 0.04 s are dropped.
+- Everything is local: no accounts, no cloud, no internet.
+
+KNOWN LIMITS (version 0.1)
+- Real AI singing has not been tested on a graphics card yet. Until then the test voices work
+  and the real voice engine is experimental.
+- English only for now.
+- Changing the DAW tempo after rendering needs a new render.
+- Tested hosts: not yet. Please report what works for you.
+
+CREDITS AND LICENCES
+AI Purrformer: AGPL-3.0 (source: github.com/SpeakingColors/AI-Purrformer).
+Voice model: SoulX-Singer by Soul AI Lab, Apache-2.0.
+Plugin framework: JUCE. Starter voices: VocalSet, CC BY 4.0.

@@ -1,0 +1,36 @@
+AI PURRFORMER: INSTALL (read me first, works offline)
+=====================================================
+
+What is this?
+A free, open source plugin (AGPL-3.0) that sings your MIDI melody with an AI voice.
+Your own pitch is never used. Keep this file and the installer: nothing needs the internet.
+
+WINDOWS
+1. Download ALL the files of the installer into one folder
+   (AI-Purrformer-Setup.exe and any AI-Purrformer-Setup-1.bin, -2.bin ... files next to it).
+2. Double click AI-Purrformer-Setup.exe and follow the steps.
+   Windows may say "unknown publisher". That is because the installer is not paid-signed.
+   The full source code is public, so you can check it. Click More info, then Run anyway.
+3. Open the Start Menu and start "AI Purrformer Engine". A black window opens. Leave it open.
+   (The installer can also start it every time you log in. Tick that box if you want.)
+4. Open your DAW (Studio One, Bitwig, Reaper...). Rescan plugins if it is not listed.
+5. Add "AI Purrformer" as an INSTRUMENT track. Then read MANUAL.txt, section "First song".
+
+LINUX
+1. Join the downloaded parts into one zip, then unzip it:
+     cat AI-Purrformer-linux-*.zip.part* > bundle.zip && unzip bundle.zip
+2. Open a terminal in the unzipped folder and run:  ./install.sh
+   It needs Python 3.10 or newer on your computer. It copies the plugin to ~/.vst3.
+   A Flatpak/AppImage installer is planned.
+3. Start the engine with ./start-engine.sh, then rescan plugins in your DAW.
+   Flatpak DAWs (Bitwig Flatpak) may not see ~/.vst3 yet. Tell us if that happens.
+
+IT DOES NOT WORK? CHECK
+- The engine window must be open. The plugin top bar says "engine connected" when it is.
+- Voices page says the voice model file is missing: reinstall with the full installer.
+- Still stuck: open an issue on the project page (github.com/SpeakingColors/AI-Purrformer).
+
+UNINSTALL
+Windows: Settings, Apps, AI Purrformer, Uninstall. Your own voices are kept
+(folder: %USERPROFILE%\.local\share\purrformer\voices) so delete that by hand if you want.
+Linux: delete ~/.vst3/"AI Purrformer.vst3" and the unzipped folder.

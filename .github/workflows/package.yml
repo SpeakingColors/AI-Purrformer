@@ -42,8 +42,9 @@ jobs:
           cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
           cp -r engine/purrformer engine/third_party engine/requirements.txt engine/requirements-runtime.txt dist/engine/
           find dist -name __pycache__ -prune -exec rm -rf {} \; || true
-          cp scripts/install.sh scripts/install.bat docs/BUILD.md dist/
+          cp docs/INSTALL.txt docs/MANUAL.txt docs/BUILD.md dist/
           cp LICENSE dist/ || true
+          if [ '${{ matrix.name }}' = linux ]; then cp scripts/install.sh dist/; fi
       - name: Add the model weights (about 3 GB)
         shell: bash
         run: |
@@ -65,24 +66,44 @@ jobs:
         run: |
           pip install nltk
           python -m nltk.downloader -d dist/engine/nltk_data cmudict averaged_perceptron_tagger averaged_perceptron_tagger_eng
-      - name: Download every Python wheel for offline install
+      - name: Linux, download every Python wheel for offline install
+        if: matrix.name == 'linux'
         shell: bash
         run: |
           pip download -d dist/wheelhouse -r engine/requirements.txt -r engine/requirements-runtime.txt
           pip download -d dist/wheelhouse torch torchaudio --index-url "${{ inputs.torch_index }}" --extra-index-url https://pypi.org/simple
           du -sh dist/wheelhouse
-      - name: Zip and split (release files are limited to 2 GB each)
+      - name: Windows, bundle its own Python so users install nothing else
+        if: matrix.name == 'windows'
         shell: bash
         run: |
-          name="AI-Purrformer-${{ matrix.name }}-${{ inputs.variant }}"
+          curl -fL --retry 5 -o py.zip https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
+          mkdir -p dist/python && unzip -q py.zip -d dist/python
+          printf 'python311.zip\n.\n..\\engine\n..\\site-packages\nimport site\n' > dist/python/python311._pth
+          pip install --target dist/site-packages -r engine/requirements.txt -r engine/requirements-runtime.txt
+          pip install --target dist/site-packages torch torchaudio --index-url "${{ inputs.torch_index }}" --extra-index-url https://pypi.org/simple
+          printf '@echo off\r\ncd /d "%%~dp0engine"\r\n"%%~dp0python\\python.exe" -m uvicorn purrformer.server:app --host 127.0.0.1 --port 8765\r\npause\r\n' > dist/start-engine.bat
+          du -sh dist/python dist/site-packages
+      - name: Windows, build the .exe installer
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\windows.iss
+          Get-ChildItem out
+      - name: Linux, zip and split (release files are limited to 2 GB each)
+        if: matrix.name == 'linux'
+        shell: bash
+        run: |
+          name="AI-Purrformer-linux-${{ inputs.variant }}"
           python -c "import shutil;shutil.make_archive('$name','zip','dist')"
           split -b 1900m -d "$name.zip" "$name.zip.part"
           rm "$name.zip"
-          ls -l
+          mkdir -p out && mv AI-Purrformer-linux-*.part* out/
       - name: Publish as release files
         shell: bash
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           tag="bundle-${{ inputs.variant }}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Offline bundle ${{ inputs.variant }}" --notes "Download ALL parts for your OS, join them (cat on Linux, copy /b on Windows) into one zip, unzip, run install."
-          gh release upload "$tag" AI-Purrformer-*.part* --clobber
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Offline bundle ${{ inputs.variant }}" --notes "Windows: download ALL files named AI-Purrformer-Setup* into one folder, run the .exe. Linux: download all parts, join, unzip, read INSTALL.txt. Works offline."
+          gh release upload "$tag" out/* --clobber

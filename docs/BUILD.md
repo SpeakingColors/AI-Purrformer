@@ -28,4 +28,4 @@ Every push builds a Windows plugin on GitHub.
 Only the built-in test voices (tone backend) work until the real voice backend is tested on your GPU.
 
 ## Full offline bundle (for releases)
-Run the workflow **Package offline bundle** (Actions tab). It makes, per OS, a multi-part zip with the plugin, engine, SoulX code, model weights, starter voices and every Python wheel. On the user's machine: join the parts, unzip, run `install.sh` or `install.bat`. No internet is needed at any step. Run **Build voice pack** first, once.
+Run the workflow **Package offline bundle** (Actions tab). It makes, per OS, a multi-part zip with the plugin, engine, SoulX code, model weights, starter voices and every Python wheel. Windows output: `AI-Purrformer-Setup.exe` (+ `-1.bin` slices) built with Inno Setup (`installer/windows.iss`), carrying its own Python. Linux output: a split zip with `install.sh` until a Flatpak/AppImage exists. Every bundle includes `INSTALL.txt` and `MANUAL.txt` (from `docs/`). No internet is needed at any step. Run **Build voice pack** first, once.
