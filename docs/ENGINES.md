@@ -7,6 +7,9 @@ Checked 2026-10-17 from each project's GitHub page. "Not stated" means the page 
 | RVC (Retrieval-based-Voice-Conversion-WebUI) | MIT | Yes (guide targets Ubuntu 24.04) | Not mentioned (CPU build offered for AMD/Intel) | Real-time GUI: ~170 ms, ~90 ms with ASIO | Not stated directly; has an "AI singer" tutorial and vocal separator |
 | DDSP-SVC | MIT | Not stated (tested on Windows, CUDA 13.0, torch 2.9.1) | Not mentioned | No figure; claims low latency | Yes, built for singing voice conversion |
 | Applio (RVC-based) | MIT, weights too | Yes (install scripts) | Not mentioned | Not stated | Not stated |
+| so-vits-svc | AGPL-3.0 | Not stated | Not mentioned | Not stated | Yes, singing only (no TTS). ARCHIVED Nov 2023, read-only |
+| Seed-VC | GPL-3.0 | Yes (Windows, Mac, Linux) | Not mentioned | Real-time: ~300 ms algorithm + ~100 ms device; 430 ms measured on an RTX 3060 laptop | Yes, zero-shot singing conversion (`app_svc.py`), no training needed. ARCHIVED Nov 2025, read-only |
+| DiffSinger (openvpi) | Apache-2.0 | Not stated | Not mentioned | Not stated | Singing voice synthesis, not conversion. Not a fit for "replace my voice" |
 
 ## Model and voice licensing
 
@@ -17,9 +20,7 @@ Checked 2026-10-17 from each project's GitHub page. "Not stated" means the page 
 
 ## Still to check
 
-- so-vits-svc (fork status, license)
-- DiffSinger (synthesis from notes, not conversion)
-- Seed-VC and other newer conversion models
+- Newer conversion models (none checked yet beyond the table)
 - Pitch/time correction options (offline): which libraries, which licenses
 - Local lyric LLM via llama.cpp: model license, AMD support (Vulkan/ROCm)
 - Whether any engine above runs on ROCm PyTorch with an RX 9070 XT (test, do not assume)
@@ -27,3 +28,18 @@ Checked 2026-10-17 from each project's GitHub page. "Not stated" means the page 
 ## AMD note
 
 AMD's ROCm 6.4.4 matrix lists the RX 9070 XT with official PyTorch 2.6 support, on Ubuntu 22.04/24.04 and RHEL 9.6 only. None of the engines above document ROCm. The real test is running them on ROCm PyTorch.
+
+## Notes from the second pass
+
+- so-vits-svc says it is academic only, not for production, and bans illegal, religious and political use. Pretrained models may carry extra limits. Treat as reference, not a base.
+- Seed-VC needs no training: a short reference clip (1 to 30 s) sets the target voice. Good for fast prototyping. Archived, so no fixes upstream. Pretrained model licenses are not stated on its page.
+- GPL-3.0 and AGPL-3.0 code can be combined. The engine runs as a separate process behind localhost anyway.
+- Conversion models follow the pitch of the input. Since the goal is to fix an off-key voice, pitch correction must run BEFORE conversion. This is the same for every engine above (design point, not a claim from their pages).
+
+## Recommendation (pending ROCm test)
+
+1. Build the engine with swappable backends.
+2. First backend: Seed-VC (zero-shot, Linux, singing, fastest to a working demo).
+3. Second backend: RVC or DDSP-SVC (MIT, trained voices, lighter and better for repeated use).
+4. Do not build on archived projects as the only option. Plan to vendor or pin the version.
+5. Gate: whichever runs on ROCm PyTorch with the RX 9070 XT wins first.
