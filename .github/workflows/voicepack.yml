@@ -36,12 +36,11 @@ jobs:
           msg = f"{len(names)} files, {len(wavs)} wav. Samples: " + " | ".join(wavs[:12]) + " || folders: " + " | ".join(list(tops)[:15])
           print("::notice title=VocalSet zip layout::" + msg.replace("%", "%25").replace("\n", "%0A"))
           PY
-      - name: Extract only the long-tone "a" clips (system unzip, python's reader fails on this zip)
+      - name: Extract the long-tone "a" clips (tries several readers, the zip index is damaged)
         run: |
-          unzip -q -o VocalSet.zip 'data_by_vowel/a/*_long_*' -d vs || echo "unzip warnings ignored"
-          n=$(find vs -name '*.wav' | wc -l)
-          echo "::notice title=extracted::$n long-tone a clips, first: $(find vs -name '*.wav' | head -5 | tr '\n' ' ')"
-          test "$n" -gt 0
+          sudo apt-get update -qq && sudo apt-get install -y -qq libarchive-tools p7zip-full
+          pip install -q stream-unzip
+          python engine/tools/extract_vocalset.py VocalSet.zip vs a
       - name: Cut the starter pack
         run: |
           cd engine

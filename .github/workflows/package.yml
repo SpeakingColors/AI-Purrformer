@@ -57,7 +57,7 @@ jobs:
         run: |
           mkdir -p dist/engine/bundled_voices
           if curl -fsL -o vp.zip "https://github.com/${{ github.repository }}/releases/download/voices-v1/voices-vocalset.zip"; then
-            unzip -q vp.zip -d dist/engine/bundled_voices
+            python -c "import zipfile;zipfile.ZipFile('vp.zip').extractall('dist/engine/bundled_voices')"
           else
             echo "no voice pack release yet (run 'Build voice pack' first)"; exit 1
           fi
@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           curl -fL --retry 5 -o py.zip https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
-          mkdir -p dist/python && unzip -q py.zip -d dist/python
+          mkdir -p dist/python && python -c "import zipfile;zipfile.ZipFile('py.zip').extractall('dist/python')"
           printf 'python311.zip\n.\n..\\engine\n..\\site-packages\nimport site\n' > dist/python/python311._pth
           pip install --target dist/site-packages -r engine/requirements.txt -r engine/requirements-runtime.txt
           pip install --target dist/site-packages torch torchaudio --index-url "${{ inputs.torch_index }}" --extra-index-url https://pypi.org/simple

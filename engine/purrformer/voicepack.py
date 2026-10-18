@@ -195,7 +195,7 @@ def install_vocalset(path: Path, bank: VoiceBank, vowel: str = "a", per_voice: i
     return out
 
 
-def build_vocalset_pack(path: Path, outdir: Path, vowel: str = "a", per_voice: int = 2, max_s: float = 8.0) -> int:
+def build_vocalset_pack(path: Path, outdir: Path, vowel: str = "a", per_voice: int = 2, max_s: float = 8.0, min_voices: int = 10) -> int:
     """Make a small bundle-ready pack (pack.json + short wavs) from the big VocalSet zip. Used by CI."""
     from .wav import to_wav_bytes
     read, names = _source(Path(path))
@@ -218,8 +218,8 @@ def build_vocalset_pack(path: Path, outdir: Path, vowel: str = "a", per_voice: i
                 break
         if made:
             voices.append({"name": f"VocalSet {s}", "files": made, "vowel": vowel})
-    if not voices:
-        raise VoiceError("found no usable long-tone clips; is this the VocalSet zip?")
+    if len(voices) < min_voices:  # VocalSet has 20 singers: far fewer means the reader missed files
+        raise VoiceError(f"only {len(voices)} usable singers found (expected about 20); the zip was not read fully")
     (outdir / "pack.json").write_text(json.dumps({
         "name": "VocalSet starter", "rights": "cc-by", "attribution": VOCALSET_ATTRIBUTION,
         "notes": "Sustained vowel clips from VocalSet. Good for timbre, not for diction.", "voices": voices}, indent=2))

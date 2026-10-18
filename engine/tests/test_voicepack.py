@@ -71,7 +71,10 @@ def test_build_then_bundled_install_is_idempotent(tmp_path):
         zf.writestr("x/data_by_vowel/a/f1_long_straight_a.wav", tone(262.0, 10.0))
         zf.writestr("x/data_by_vowel/a/f1_long_forte_a.wav", tone(262.0, 4.0))
     bundled = tmp_path / "engine" / "bundled_voices" / "vocalset"
-    assert voicepack.build_vocalset_pack(z, bundled) == 1
+    import pytest
+    with pytest.raises(voicepack.VoiceError):
+        voicepack.build_vocalset_pack(z, bundled)  # one singer only: refuse to publish a thin pack
+    assert voicepack.build_vocalset_pack(z, bundled, min_voices=1) == 1
     bank = VoiceBank(tmp_path / "bank")
     first = voicepack.install_bundled(bank, tmp_path / "engine" / "bundled_voices")
     second = voicepack.install_bundled(bank, tmp_path / "engine" / "bundled_voices")
