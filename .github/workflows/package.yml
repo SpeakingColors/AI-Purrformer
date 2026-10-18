@@ -104,6 +104,6 @@ jobs:
         shell: bash
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          tag="bundle-${{ inputs.variant }}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "Offline bundle ${{ inputs.variant }}" --notes "Windows: download ALL files named AI-Purrformer-Setup* into one folder, run the .exe. Linux: download all parts, join, unzip, read INSTALL.txt. Works offline."
+          tag="v0.1-${{ inputs.variant }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "AI Purrformer 0.1 (${{ inputs.variant }}, Windows and Linux)" --notes "Windows: download ALL files named AI-Purrformer-Setup* into one folder, run the .exe. Linux: download all parts, join, unzip, read INSTALL.txt. Works offline."
           gh release upload "$tag" out/* --clobber
