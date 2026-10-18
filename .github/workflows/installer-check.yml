@@ -1,0 +1,24 @@
+name: installer-check
+# Fast check (about 2 minutes): compiles the Windows installer script with tiny dummy files,
+# so script mistakes show up now instead of 25 minutes into a full bundle build.
+on:
+  push:
+    paths: ['installer/**', '.github/workflows/installer-check.yml']
+  workflow_dispatch:
+jobs:
+  compile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make dummy dist
+        shell: bash
+        run: |
+          mkdir -p "dist/AI Purrformer.vst3" dist/engine dist/python dist/site-packages
+          for f in "dist/AI Purrformer.vst3/x" dist/engine/x dist/python/x dist/site-packages/x dist/start-engine.bat dist/INSTALL.txt dist/MANUAL.txt dist/LICENSE; do echo x > "$f"; done
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\windows.iss
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::Installer script does not compile"; exit 1 }
+          Write-Output "::notice::Installer script compiles fine"
