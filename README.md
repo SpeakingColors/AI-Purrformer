@@ -8,9 +8,9 @@ Free, open source AI singing voice tool for Linux. Part of the cat plugin suite 
 
 ## How it works (planned)
 
-1. A JUCE VST3/CLAP plugin takes a clip from the DAW.
+1. A JUCE VST3/CLAP plugin takes lyrics and a MIDI melody (or a clip) from the DAW.
 2. It sends the clip to a local engine (Python, runs on your GPU in a container).
-3. The engine fixes pitch and timing, then converts the voice.
+3. The engine sings your lyrics on the melody you give it (MIDI or a guide vocal), in the chosen voice. Your own pitch is not used.
 4. The result comes back and lands on the track.
 
 This is offline processing: render a clip, get audio back. It is not live. Live voice replacement is a research item, not a promise.
@@ -35,6 +35,7 @@ This is offline processing: render a clip, get audio back. It is not live. Live 
 - [Engine research](docs/ENGINES.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Install on Bazzite](docs/INSTALL-BAZZITE.md)
+- [Where the melody comes from](docs/MELODY-SOURCES.md)
 - [Inspiration and borrowable ideas](docs/INSPIRATION.md)
 - [Roadmap](docs/ROADMAP.md)
 

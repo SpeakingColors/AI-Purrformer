@@ -24,7 +24,7 @@ Checked 2026-10-17 from each project's GitHub page. "Not stated" means the page 
 ## Still to check
 
 - Newer conversion models (none checked yet beyond the table)
-- Pitch/time correction options (offline): which libraries, which licenses
+- Melody input format of SoulX-Singer (see MELODY-SOURCES.md)
 - Local lyric LLM via llama.cpp: model license, AMD support (Vulkan/ROCm)
 - Whether any engine above runs on ROCm PyTorch with an RX 9070 XT (test, do not assume)
 
@@ -37,7 +37,7 @@ AMD's ROCm 6.4.4 matrix lists the RX 9070 XT with official PyTorch 2.6 support, 
 - so-vits-svc says it is academic only, not for production, and bans illegal, religious and political use. Pretrained models may carry extra limits. Treat as reference, not a base.
 - Seed-VC needs no training: a short reference clip (1 to 30 s) sets the target voice. Good for fast prototyping. Archived, so no fixes upstream. Pretrained model licenses are not stated on its page.
 - GPL-3.0 and AGPL-3.0 code can be combined. The engine runs as a separate process behind localhost anyway.
-- Conversion models follow the pitch of the input. Since the goal is to fix an off-key voice, pitch correction must run BEFORE conversion. This is the same for every engine above (design point, not a claim from their pages).
+- Conversion models follow the pitch of the input. The user's own voice has no usable melody (monotone), so the melody must come from MIDI or a guide vocal. See MELODY-SOURCES.md.
 
 ## Recommendation (pending ROCm test)
 

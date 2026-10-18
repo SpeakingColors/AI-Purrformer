@@ -7,7 +7,8 @@
 - [ ] Test engine on RX 9070 XT with ROCm PyTorch in Ubuntu Distrobox
 - [ ] Confirm engine pick after ROCm test (Seed-VC first, RVC/DDSP-SVC second)
 - [ ] Engine server: /health and /convert
-- [ ] Pitch + timing correction step
+- [ ] Melody input: MIDI notes + lyrics to engine (see MELODY-SOURCES.md)
+- [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
 - [ ] Plugin UI mockup in cat-ui style
 - [ ] Lyric notepad (standalone first), local LLM helper

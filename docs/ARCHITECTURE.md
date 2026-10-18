@@ -6,9 +6,10 @@ DAW (Bitwig / Studio One)
         │  localhost HTTP, audio clip in, audio clip out
         ▼
   Purrformer engine (Python, in Ubuntu Distrobox, ROCm PyTorch)
-        ├─ 1. pitch + timing correction
-        ├─ 2. voice conversion (RVC or DDSP-SVC, TBD)
-        └─ 3. return audio
+        ├─ 1. melody: MIDI notes / guide vocal (NOT the user's pitch)
+        ├─ 2. lyrics + timing
+        ├─ 3. sing in the chosen voice (SoulX-Singer SVS/SVC candidate)
+        └─ 4. return audio
 ```
 
 ## Why split plugin and engine
@@ -31,4 +32,4 @@ DAW (Bitwig / Studio One)
 
 - Audio transfer: file path vs upload (same machine, so file path may be simpler)
 - CLAP via JUCE: verify the extension route before committing
-- Whether pitch correction lives in the plugin or the engine
+- Melody source rules: see docs/MELODY-SOURCES.md
