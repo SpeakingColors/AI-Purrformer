@@ -52,6 +52,16 @@ BUILTIN_VOICES = [
           notes="Synthetic test timbre.", params={"timbre": "saw"}),
     Voice(id="test-square", name="Test square", kind="builtin", rights="synthetic",
           notes="Synthetic test timbre.", params={"timbre": "square"}),
+    Voice(id="test-hollow", name="Hollow", kind="builtin", rights="synthetic",
+          notes="Synthetic test timbre, soft and woody.", params={"timbre": "hollow"}),
+    Voice(id="test-warm", name="Warm", kind="builtin", rights="synthetic",
+          notes="Synthetic test timbre, mellow.", params={"timbre": "warm"}),
+    Voice(id="test-bright", name="Bright", kind="builtin", rights="synthetic",
+          notes="Synthetic test timbre, buzzy.", params={"timbre": "bright"}),
+    Voice(id="test-choir", name="Choir-ish", kind="builtin", rights="synthetic",
+          notes="Synthetic test timbre, vowel-like.", params={"timbre": "choir"}),
+    Voice(id="test-organ", name="Organ", kind="builtin", rights="synthetic",
+          notes="Synthetic test timbre.", params={"timbre": "organ"}),
 ]
 
 

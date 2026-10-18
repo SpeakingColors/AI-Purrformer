@@ -22,3 +22,9 @@ SoulX-Singer (Apache-2.0) does not bundle voices. It does zero-shot synthesis: y
 2. VocalSet clips as built-in-optional pack, `cc-by`, with the attribution shown in About (the voice bank already supports this).
 3. Friends or singers who give written permission (`permission`).
 4. Language: English first. SoulX-Singer's training data covers Mandarin, English and Cantonese per its README; other languages are not claimed by it.
+
+## Installing a pack (added 2026-10-18)
+The cloud workspace cannot download datasets, so no real voice is bundled. You download a pack yourself (so you see its licence page), then:
+- VocalSet (CC BY 4.0): download the zip from its Zenodo page, then `python -m purrformer.voicepack vocalset VocalSet.zip`. It makes one voice per singer from sustained "ah" clips, sets rights `cc-by` with the attribution line, and writes the SoulX `prompt.json` itself (pitch found by the engine). Folder layout assumed: `.../female1/long_tones/.../f1_long_straight_a.wav`. UNVERIFIED against the real zip.
+- Your own pack: a folder or zip with `pack.json` (see `engine/purrformer/voicepack.py`), then `python -m purrformer.voicepack install my-pack.zip`.
+- Five extra synthetic test voices (Hollow, Warm, Bright, Choir-ish, Organ) are built in so the blend UI has something to mix today.

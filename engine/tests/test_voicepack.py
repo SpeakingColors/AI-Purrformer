@@ -1,0 +1,65 @@
+import json
+import zipfile
+
+import numpy as np
+
+from purrformer import voicepack
+from purrformer.voicebank import VoiceBank
+from purrformer.wav import to_wav_bytes
+
+
+def tone(freq, secs=3.0, sr=22050):
+    t = np.arange(int(secs * sr)) / sr
+    return to_wav_bytes(0.5 * np.sin(2 * np.pi * freq * t) + 0.2 * np.sin(2 * np.pi * 2 * freq * t), sr)
+
+
+def test_pitch_estimate():
+    x, sr = voicepack.read_wav(tone(220.0))
+    assert voicepack.estimate_midi(x, sr) == 57
+    x, sr = voicepack.read_wav(tone(329.63))
+    assert voicepack.estimate_midi(x, sr) == 64
+
+
+def test_noise_has_no_pitch():
+    rng = np.random.default_rng(1)
+    d = to_wav_bytes(rng.uniform(-0.3, 0.3, 66000), 22050)
+    x, sr = voicepack.read_wav(d)
+    assert voicepack.estimate_midi(x, sr) is None
+
+
+def test_vowel_prompt_shape():
+    m = voicepack.vowel_prompt(tone(220.0), "a")
+    assert m["phoneme"] == "<SP> en_AA1 <SP>" and m["note_pitch"] == "0 57 0"
+    assert abs(sum(map(float, m["duration"].split())) - 3.0) < 0.05
+
+
+def test_install_pack_folder(tmp_path):
+    pk = tmp_path / "pack"
+    pk.mkdir()
+    (pk / "a.wav").write_bytes(tone(220.0))
+    (pk / "pack.json").write_text(json.dumps({"name": "x", "rights": "cc0", "voices": [
+        {"name": "Voice A", "files": ["a.wav"], "vowel": "a"}]}))
+    bank = VoiceBank(tmp_path / "bank")
+    (v,) = voicepack.install_pack(pk, bank)
+    assert v.rights == "cc0" and (bank.root / v.id / "prompt.json").is_file()
+
+
+def test_vocalset_layout(tmp_path):
+    z = tmp_path / "vs.zip"
+    with zipfile.ZipFile(z, "w") as zf:
+        zf.writestr("data_by_singer/female1/long_tones/straight/f1_long_straight_a.wav", tone(262.0))
+        zf.writestr("data_by_singer/male2/long_tones/straight/m2_long_straight_a.wav", tone(130.8))
+        zf.writestr("data_by_singer/male2/long_tones/straight/m2_long_straight_e.wav", tone(130.8))
+    bank = VoiceBank(tmp_path / "bank")
+    vs = voicepack.install_vocalset(z, bank)
+    assert sorted(v.name for v in vs) == ["VocalSet female1", "VocalSet male2"]
+    assert all(v.rights == "cc-by" and "CC BY 4.0" in v.attribution for v in vs)
+    assert len(vs[0].clips) == 1
+
+
+def test_bad_pack(tmp_path):
+    import pytest
+    from purrformer.voicebank import VoiceError
+    (tmp_path / "e").mkdir()
+    with pytest.raises(VoiceError):
+        voicepack.install_pack(tmp_path / "e", VoiceBank(tmp_path / "b"))

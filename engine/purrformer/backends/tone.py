@@ -15,6 +15,11 @@ _HARMONICS = {
     "sine": lambda k: 1.0 if k == 1 else 0.0,
     "saw": lambda k: 1.0 / k,
     "square": lambda k: 1.0 / k if k % 2 else 0.0,
+    "hollow": lambda k: 1.0 / (k * k) if k % 2 else 0.0,
+    "warm": lambda k: 0.6 ** (k - 1),
+    "bright": lambda k: 1.0 / k ** 0.5,
+    "choir": lambda k: (1.0 if k in (1, 2, 3) else 0.35 / (k - 2)) if k < 12 else 0.0,
+    "organ": lambda k: {1: 1.0, 2: 0.8, 3: 0.5, 4: 0.6, 6: 0.3, 8: 0.2}.get(k, 0.0),
 }
 
 
