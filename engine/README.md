@@ -30,3 +30,13 @@ Adapters turn this into what each AI backend needs.
 ## Adding a backend
 
 Implement `Backend` in `purrformer/backends/base.py` and call `register()`.
+
+## FX prototype
+
+`purrformer/fx.py` holds the robot retune (pitch tracker + delay-line shifter) and the dirt stage.
+`/sing` applies `job.fx` after the backend renders. Make listening demos with:
+
+    pip install scipy
+    python tools/make_demos.py OUT_DIR
+
+The demos use a synthetic voice. Judge the effect by ear, then tune. Known limits: formants move with the pitch shift, grain artifacts are not tuned.

@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 
 from . import backends
+from .fx import apply_fx
 from .job import SingJob
 from .midi import parse_midi
 from .wav import to_wav_bytes
@@ -24,7 +25,7 @@ def sing(job: SingJob):
         raise HTTPException(status_code=400, detail=f"unknown backend '{job.backend}'")
     if not backend.available():
         raise HTTPException(status_code=503, detail=f"backend '{job.backend}' is not available")
-    audio = backend.sing(job)
+    audio = apply_fx(backend.sing(job), job)
     return Response(content=to_wav_bytes(audio, job.sample_rate), media_type="audio/wav")
 
 
