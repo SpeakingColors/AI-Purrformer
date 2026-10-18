@@ -20,6 +20,13 @@ struct NoteEv
     juce::String lyric;
 };
 
+struct ModelStatus
+{
+    juce::String state = "unknown", step, error; // state: idle, downloading, done, error, unknown
+    juce::int64 done = 0, total = 0;
+    bool installed = false;
+};
+
 class EngineClient
 {
 public:
@@ -33,6 +40,8 @@ public:
     bool sing (const juce::String& jobJson, juce::MemoryBlock& wav, juce::String& err) const;
     bool importVoice (const juce::String& name, const juce::String& rights, bool confirmed,
                       const juce::MemoryBlock& wav, juce::String& err) const;
+    bool modelStatus (ModelStatus& out) const;
+    bool startModelDownload (juce::String& err) const;
     bool deleteVoice (const juce::String& id, juce::String& err) const;
 
 private:

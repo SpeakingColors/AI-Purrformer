@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from . import backends
 from .job import SingJob
 from .midi import parse_midi
+from .models import downloader
 from .render import render_job
 from .voicebank import RIGHTS, VoiceBank, VoiceError, default_root
 from .wav import to_wav_bytes
@@ -23,6 +24,16 @@ def health():
         "status": "ok",
         "backends": [{"name": b.name, "available": b.available()} for b in backends.all_backends()],
     }
+
+
+@app.get("/models")
+def models_status():
+    return downloader.status()
+
+
+@app.post("/models/download")
+def models_download():
+    return {"started": downloader.start()}
 
 
 @app.post("/sing")

@@ -574,10 +574,16 @@ struct VoicesPage : Page
 {
     PurrProcessor& p; Panel lib { "VOICE LIBRARY", sun, Ico::users }, det { "VOICE DETAILS", mint, Ico::mic };
     juce::TextButton import { "Import .wav..." }, del { "Delete selected" }, refresh { "Refresh" }, use[3];
-    std::unique_ptr<juce::FileChooser> chooser; int sel = 0;
+    juce::TextButton getModel { "Download real voice model" };
+    std::unique_ptr<juce::FileChooser> chooser; int sel = 0, scroll = 0; static constexpr int rowsShown = 8;
+    juce::CriticalSection mLock; ModelStatus mStatus; juce::uint32 mLastPoll = 0; std::atomic<bool> mPolling { false };
+    ModelStatus modelCopy() { const juce::ScopedLock sl (mLock); return mStatus; }
     explicit VoicesPage (PurrProcessor& pr) : p (pr)
     {
-        addAndMakeVisible (lib); addAndMakeVisible (det);
+        addAndMakeVisible (lib); addAndMakeVisible (det); addAndMakeVisible (getModel); styleButton (getModel, pink, bg);
+        getModel.setBounds (642, 462, 230, 32);
+        getModel.onClick = [this] { juce::Component::SafePointer<VoicesPage> s (this);
+            juce::Thread::launch ([s, this] { juce::String err; if (! p.engine.startModelDownload (err)) p.setStatusText (err); mLastPoll = 0; }); };
         for (auto* b : { &import, &del, &refresh }) { addAndMakeVisible (b); styleButton (*b); }
         styleButton (import, mint, bg);
         lib.setBounds (0, 0, 620, 600); det.setBounds (628, 0, 628, 600);
@@ -614,17 +620,24 @@ struct VoicesPage : Page
     }
     void mouseDown (const juce::MouseEvent& e) override
     {
-        auto v = p.getVoices(); int row = (e.y - 44) / 60;
-        if (e.x < 620 && e.y >= 44 && row >= 0 && row < (int) v.size()) { sel = row; repaint(); }
+        auto v = p.getVoices(); int row = (e.y - 44) / 60 + scroll;
+        if (e.x < 620 && e.y >= 44 && e.y < 44 + rowsShown * 60 && row >= 0 && row < (int) v.size()) { sel = row; repaint(); }
+    }
+    void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override
+    {
+        if (e.x >= 620) return;
+        int maxScroll = juce::jmax (0, (int) p.getVoices().size() - rowsShown);
+        scroll = juce::jlimit (0, maxScroll, scroll + (w.deltaY > 0 ? -1 : 1)); repaint();
     }
     void paintOverChildren (juce::Graphics& g) override
     {
         auto v = p.getVoices();
         if (v.empty()) label (g, "No voices yet: is the engine running?", { 20, 50, 580, 30 }, mute, 13.0f, false);
         const juce::Colour cc[] = { sun, pink, teal, sky, violet, mint };
-        for (size_t i = 0; i < v.size() && i < 8; ++i)
+        scroll = juce::jlimit (0, juce::jmax (0, (int) v.size() - rowsShown), scroll);
+        for (size_t i = (size_t) scroll; i < v.size() && (int) i < scroll + rowsShown; ++i)
         {
-            auto row = juce::Rectangle<int> (14, 44 + (int) i * 60, 592, 52); auto c = v[i].builtin ? sky : cc[i % 6];
+            auto row = juce::Rectangle<int> (14, 44 + ((int) i - scroll) * 60, 592, 52); auto c = v[i].builtin ? sky : cc[i % 6];
             g.setColour (well); g.fillRoundedRectangle (row.toFloat(), 12);
             g.setColour ((int) i == sel ? c : line); g.drawRoundedRectangle (row.toFloat().reduced (0.5f), 12, (int) i == sel ? 2.0f : 1.0f);
             g.setColour (c); g.fillEllipse ((float) row.getX() + 8, (float) row.getY() + 8, 36, 36);
@@ -633,7 +646,8 @@ struct VoicesPage : Page
             label (g, v[i].builtin ? "synthetic, no clips" : juce::String (v[i].clips) + " clips, " + juce::String (juce::roundToInt (v[i].seconds)) + " s", { row.getX() + 54, row.getY() + 28, 330, 18 }, mute, 11.0f, false);
             label (g, v[i].rights, { row.getRight() - 150, row.getY(), 140, row.getHeight() }, c, 12.0f, true, juce::Justification::centredRight);
         }
-        label (g, "AI Purrformer ships no one else's voice. Add your own, or voices you have permission or a licence for.", { 14, 510, 592, 32 }, mute, 11.0f, false);
+        if ((int) v.size() > rowsShown) label (g, "Scroll the list for more (" + juce::String ((int) v.size()) + " voices)", { 400, 528, 200, 16 }, sun, 10.5f, false, juce::Justification::centredRight);
+        label (g, "Bundled voices are CC BY and credited. Add your own, or voices you have permission or a licence for.", { 14, 508, 592, 20 }, mute, 11.0f, false);
         if (sel < (int) v.size() && ! v.empty())
         {
             auto& s = v[(size_t) sel];
@@ -648,13 +662,39 @@ struct VoicesPage : Page
             juce::String nm = ids[(size_t) i]; for (auto& x : v) if (x.id == ids[(size_t) i]) nm = x.name;
             label (g, "Voice " + juce::String (i + 1) + ": " + (nm.isEmpty() ? "(empty)" : nm), { 650, y + 24 + i * 26, 580, 22 }, ink, 13.0f, false);
         }
+        {
+            auto m = modelCopy();
+            juce::String t;
+            if (m.installed || m.state == "done") t = "Real voice model installed.";
+            else if (m.state == "downloading")
+                t = juce::String (m.step == "code" ? "Downloading code" : "Downloading model") + (m.total > 0 ? ": " + juce::String (juce::roundToInt (100.0 * (double) m.done / (double) m.total)) + " %  (" + juce::String ((double) m.done / 1.0e9, 2) + " of " + juce::String ((double) m.total / 1.0e9, 2) + " GB)" : "...");
+            else if (m.state == "error") t = "Download stopped: " + m.error + " (press the button to resume)";
+            else t = "Real voices need the SoulX-Singer model (a few GB, downloaded once).";
+            label (g, t, { 886, 462, 360, 32 }, m.state == "error" ? orange : mute, 11.0f, false);
+            if (m.state == "downloading" && m.total > 0)
+            {
+                auto bar = juce::Rectangle<float> (642, 500, 604, 8);
+                g.setColour (well); g.fillRoundedRectangle (bar, 4);
+                g.setColour (pink); g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * (float) ((double) m.done / (double) m.total)), 4);
+            }
+        }
         label (g, "Voice folder (engine side): ~/.local/share/purrformer/voices", { 650, 520, 580, 20 }, mute, 11.0f, false);
         label (g, p.statusText(), { 650, 548, 580, 24 }, sun, 12.0f, false);
     }
     std::uint64_t lastSig = 0;
     void sync() override
     {
-        std::uint64_t h = 11; auto v = p.getVoices(); hashIn (h, (double) v.size()); hashIn (h, sel);
+        auto now = juce::Time::getMillisecondCounter();
+        if (now - mLastPoll > 1000 && ! mPolling.exchange (true)) // ask the engine once a second, off the UI thread
+        {
+            mLastPoll = now;
+            juce::Component::SafePointer<VoicesPage> s (this);
+            juce::Thread::launch ([s, this] { ModelStatus m; bool ok = p.engine.modelStatus (m);
+                if (ok) { const juce::ScopedLock sl (mLock); mStatus = m; }
+                mPolling = false; });
+        }
+        std::uint64_t h = 11; auto v = p.getVoices(); hashIn (h, (double) v.size()); hashIn (h, sel); hashIn (h, scroll);
+        { auto m = modelCopy(); hashIn (h, (double) m.done / 1.0e6); hashIn (h, (double) m.state.hashCode()); hashIn (h, m.installed ? 1 : 0); }
         for (auto& x : v) { hashIn (h, (double) x.id.hashCode()); hashIn (h, x.clips); }
         hashIn (h, (double) p.statusText().hashCode()); for (auto& id : p.getVoiceIds()) hashIn (h, (double) id.hashCode());
         if (h != lastSig) { lastSig = h; repaint(); }

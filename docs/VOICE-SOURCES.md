@@ -34,3 +34,6 @@ The cloud workspace cannot download datasets, so no real voice is bundled. You d
 - CI: run the workflow **Build voice pack** once (Actions tab). It downloads VocalSet on GitHub's servers, cuts a small starter pack (2 short clips per singer) and publishes it as release `voices-v1`. Every plugin build after that downloads it and puts it in `bundled_voices`.
 - CC BY 4.0 allows redistribution with credit; the credit line is stored with each voice and must be shown in the app's About page (TODO).
 - Not bundled: the SoulX-Singer model weights (several GB). Plan: the engine downloads them on first run with a progress bar (TODO).
+
+## First-run model download (added 2026-10-18)
+Voices page has a **Download real voice model** button with a progress bar. The engine fetches the SoulX-Singer code (GitHub zip) and `model.pt` (Hugging Face, Apache-2.0 per its page) into `~/.local/share/purrformer/models` (`PURRFORMER_MODELS` to change). It resumes after a break. Endpoints: `GET /models`, `POST /models/download`. Tested against a local fake server (full download, resume, error, unsafe zip), NOT against the real URLs. Still missing: installing the Python packages (torch for ROCm, etc.), which needs your GPU machine to get right.

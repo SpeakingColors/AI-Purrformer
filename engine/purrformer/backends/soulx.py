@@ -42,7 +42,10 @@ class SoulXBackend(Backend):
     @staticmethod
     def root() -> Optional[Path]:
         v = os.environ.get("PURRFORMER_SOULX_DIR")
-        return Path(v) if v else None
+        if v:
+            return Path(v)
+        from ..models import soulx_dir  # the folder the first-run download fills
+        return soulx_dir()
 
     def available(self) -> bool:
         r = self.root()

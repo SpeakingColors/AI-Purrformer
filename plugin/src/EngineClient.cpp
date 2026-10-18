@@ -55,6 +55,29 @@ bool EngineClient::health (juce::StringArray& backends, juce::String& err) const
     return true;
 }
 
+bool EngineClient::modelStatus (ModelStatus& m) const
+{
+    juce::MemoryBlock out; int status = 0;
+    if (! request ("GET", "/models", nullptr, {}, out, status, 1500) || status != 200) return false;
+    auto v = juce::JSON::parse (out.toString());
+    m.state = v.getProperty ("state", "unknown").toString();
+    m.step = v.getProperty ("step", "").toString();
+    m.error = v.getProperty ("error", "").toString();
+    m.done = (juce::int64) v.getProperty ("done", 0);
+    m.total = (juce::int64) v.getProperty ("total", 0);
+    m.installed = (bool) v.getProperty ("installed", false);
+    return true;
+}
+
+bool EngineClient::startModelDownload (juce::String& err) const
+{
+    juce::MemoryBlock out, body; int status = 0;
+    body.append ("{}", 2);
+    if (! request ("POST", "/models/download", &body, "application/json", out, status, 3000)) { err = "engine not reachable"; return false; }
+    if (status != 200) { err = errorText (out, status); return false; }
+    return true;
+}
+
 bool EngineClient::listVoices (std::vector<VoiceInfo>& outV, juce::String& err) const
 {
     juce::MemoryBlock out; int status = 0;
