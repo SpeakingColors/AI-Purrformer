@@ -1,0 +1,25 @@
+# C++ / CMake / JUCE
+build/
+cmake-build-*/
+*.o
+*.so
+*.vst3/
+*.clap
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Models and audio (never commit weights or voice data)
+models/
+*.pth
+*.pt
+*.onnx
+*.ckpt
+*.safetensors
+*.wav
+*.flac
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

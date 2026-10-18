@@ -1,0 +1,42 @@
+# AI Purrformer
+
+Free, open source AI singing voice tool for Linux. Part of the cat plugin suite by SpeakingColors.
+
+**Goal:** sing badly, get a much better voice back: on time, on key, in tune with the song. Bonus: a lyric notepad and helper.
+
+**Status:** research and planning. No working code yet.
+
+## How it works (planned)
+
+1. A JUCE VST3/CLAP plugin takes a clip from the DAW.
+2. It sends the clip to a local engine (Python, runs on your GPU in a container).
+3. The engine fixes pitch and timing, then converts the voice.
+4. The result comes back and lands on the track.
+
+This is offline processing: render a clip, get audio back. It is not live. Live voice replacement is a research item, not a promise.
+
+## Target setup
+
+- OS: Bazzite KDE (immutable Fedora), no dual boot
+- DAWs: Bitwig, Studio One
+- GPU: AMD RX 9070 XT (ROCm, not CUDA)
+- Engine runs in an Ubuntu container (Distrobox); plugin talks to it over localhost
+
+## Layout
+
+- `plugin/` JUCE plugin (AGPL-3.0)
+- `engine/` Python local server
+- `lyrics/` lyric notepad and helper
+- `flatpak/` Flathub packaging (later)
+- `docs/` research, architecture, install notes, roadmap
+
+## Docs
+
+- [Engine research](docs/ENGINES.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Install on Bazzite](docs/INSTALL-BAZZITE.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## License
+
+Code: AGPL-3.0 (see `LICENSE`). Voice models and weights have their own terms; see `docs/ENGINES.md`. Only train and convert with voices you have the rights to use.
