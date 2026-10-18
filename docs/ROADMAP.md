@@ -12,7 +12,7 @@
 - [ ] Melody input to the real engine (see MELODY-SOURCES.md)
 - [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
-- [ ] Plugin UI mockup in cat-ui style
+- [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics pages), kept in the Claude Design canvas "AI Purrformer UI"
 - [x] Robot-voice prototype (numpy): hard retune to MIDI, dry/wet vs clean voice. Measured on a synthetic voice only, NOT yet tuned by ear
 - [x] Dirt prototype: saturation, bitcrush, artifacts. Not yet tuned by ear
 - [ ] Port robot + dirt to C++ for the plugin; formant preservation; test on a real voice
