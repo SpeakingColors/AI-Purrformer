@@ -2,6 +2,8 @@
 
 - [x] Repo created (AGPL-3.0)
 - [x] Engine research, first two passes (see ENGINES.md)
+- [ ] Voice blending test (mix several reference voices)
+- [ ] Stem separation step (ACE-Step 1.5 idea, check license)
 - [ ] Test engine on RX 9070 XT with ROCm PyTorch in Ubuntu Distrobox
 - [ ] Confirm engine pick after ROCm test (Seed-VC first, RVC/DDSP-SVC second)
 - [ ] Engine server: /health and /convert

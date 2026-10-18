@@ -35,6 +35,7 @@ This is offline processing: render a clip, get audio back. It is not live. Live 
 - [Engine research](docs/ENGINES.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Install on Bazzite](docs/INSTALL-BAZZITE.md)
+- [Inspiration and borrowable ideas](docs/INSPIRATION.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## License

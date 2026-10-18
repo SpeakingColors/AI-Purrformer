@@ -9,6 +9,9 @@ Checked 2026-10-17 from each project's GitHub page. "Not stated" means the page 
 | Applio (RVC-based) | MIT, weights too | Yes (install scripts) | Not mentioned | Not stated | Not stated |
 | so-vits-svc | AGPL-3.0 | Not stated | Not mentioned | Not stated | Yes, singing only (no TTS). ARCHIVED Nov 2023, read-only |
 | Seed-VC | GPL-3.0 | Yes (Windows, Mac, Linux) | Not mentioned | Real-time: ~300 ms algorithm + ~100 ms device; 430 ms measured on an RTX 3060 laptop | Yes, zero-shot singing conversion (`app_svc.py`), no training needed. ARCHIVED Nov 2025, read-only |
+| SoulX-Singer | Apache-2.0 (weights said to be under the same) | Not stated (Python 3.10, Conda) | Not mentioned | Not stated | Yes: singing synthesis from melody/MIDI AND zero-shot voice conversion (SVC released 2026-03-16) |
+| ACE-Step 1.5 | MIT (weights license not stated) | Yes (.sh scripts) | YES: ROCm listed, Linux ROCm requirements file | Under 10 s per full song on an RTX 3090 | Music generation with lyrics, covers, stems, LoRA. No voice cloning described |
+| YuE | Apache-2.0 incl. weights | Yes (conda, CUDA 11.8, FlashAttention 2 mandatory) | Not mentioned; FlashAttention 2 is a likely blocker | ~360 s for 30 s of audio on an RTX 4090 | Lyrics to full song with vocals, voice reference via in-context learning. Too heavy for our use |
 | DiffSinger (openvpi) | Apache-2.0 | Not stated | Not mentioned | Not stated | Singing voice synthesis, not conversion. Not a fit for "replace my voice" |
 
 ## Model and voice licensing
@@ -39,7 +42,7 @@ AMD's ROCm 6.4.4 matrix lists the RX 9070 XT with official PyTorch 2.6 support, 
 ## Recommendation (pending ROCm test)
 
 1. Build the engine with swappable backends.
-2. First backend: Seed-VC (zero-shot, Linux, singing, fastest to a working demo).
+2. First backend candidates: SoulX-Singer (newer, Apache-2.0, singing synthesis + zero-shot conversion) and Seed-VC (zero-shot, Linux, singing, archived). Test both on the RX 9070 XT.
 3. Second backend: RVC or DDSP-SVC (MIT, trained voices, lighter and better for repeated use).
 4. Do not build on archived projects as the only option. Plan to vendor or pin the version.
 5. Gate: whichever runs on ROCm PyTorch with the RX 9070 XT wins first.
