@@ -14,6 +14,7 @@
 - [ ] Lyrics timing from a spoken take (forced alignment)
 - [ ] JUCE plugin skeleton (VST3), then CLAP
 - [x] Plugin UI mockup v1 (Sing, Voice FX, Lyrics, Voices pages), kept in the Claude Design canvas "AI Purrformer UI"
+- [x] Plugin UI mockup v2: neon soda palette, original singer cat mascot with mic, icons, supersaw panel on Voice FX
 - [x] Robot-voice prototype (numpy): hard retune to MIDI, dry/wet vs clean voice. Measured on a synthetic voice only, NOT yet tuned by ear
 - [x] Dirt prototype: saturation, bitcrush, artifacts. Not yet tuned by ear
 - [x] Supersaw voice stack + widener prototype (stereo). Not tuned by ear yet
