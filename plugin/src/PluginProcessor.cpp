@@ -5,6 +5,13 @@ namespace purr
 {
 using Layout = juce::AudioProcessorValueTreeState::ParameterLayout;
 
+const char* const* scaleNames()
+{
+    static const char* const names[13] = { "major", "minor", "dorian", "phrygian", "lydian", "mixolydian", "locrian",
+                                           "harmonic minor", "melodic minor", "major pentatonic", "minor pentatonic", "blues", "chromatic" };
+    return names;
+}
+
 Layout PurrProcessor::makeLayout()
 {
     using P = juce::ParameterID;
@@ -26,10 +33,16 @@ Layout PurrProcessor::makeLayout()
     flt ("key_snap", "Key snap", 0.0f);   flt ("midi_follow", "Follow MIDI", 1.0f);
     flt ("dry", "Original voice level", 0.0f);
     bl ("monitor", "Hear input while recording", true);
-    juce::StringArray keys { "Auto", "Off" };
-    for (auto* t : { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }) keys.add (juce::String (t) + " major");
-    for (auto* t : { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }) keys.add (juce::String (t) + " minor");
-    l.add (std::make_unique<juce::AudioParameterChoice> (P { "key", 1 }, "Key", keys, 0));
+    // key: Auto listens to the song, Manual uses the note and scale below, Off = no key help
+    l.add (std::make_unique<juce::AudioParameterChoice> (P { "key", 1 }, "Key", juce::StringArray { "Auto", "Manual", "Off" }, 0));
+    l.add (std::make_unique<juce::AudioParameterChoice> (P { "tonic", 1 }, "Key note",
+           juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
+    l.add (std::make_unique<juce::AudioParameterChoice> (P { "scale", 1 }, "Scale", juce::StringArray (scaleNames(), 13), 0));
+    // grit (Drive, Transistor, Fuzz from PurrOne), see engine/purrformer/grit.py
+    bl ("grit_on", "Grit on", false);
+    flt ("grit_drive", "Drive", 0.0f); flt ("grit_trans", "Transistor", 0.0f); flt ("grit_fuzz", "Fuzz", 0.0f); flt ("grit_mix", "Grit mix", 0.5f);
+    l.add (std::make_unique<juce::AudioParameterChoice> (P { "grit_pos", 1 }, "Grit position",
+           juce::StringArray { "Before the voice", "Between (each voice)", "After the voice", "Before + after", "All three" }, 2));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "mode", 1 }, "Mode", juce::StringArray { "melody_leads", "voice_leads" }, 0));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "blend", 1 }, "Blend", juce::StringArray { "layer", "embedding" }, 0));
     return l;

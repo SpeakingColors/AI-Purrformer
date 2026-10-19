@@ -69,6 +69,12 @@ int main (int argc, char** argv)
     juce::MessageManager::getInstance()->runDispatchLoopUntil (500);
     shot (*ed, dir.getChildFile ("fx-3-recorded.png"));
 
+    {   // show the optional bits: a hand-picked key and some grit
+        auto setP = [&] (const char* id, float v) { auto* p = fx.apvts.getParameter (id); p->setValueNotifyingHost (p->convertTo0to1 (v)); };
+        setP ("key", 1); setP ("tonic", 9); setP ("scale", 10);                         // Manual, A, minor pentatonic
+        setP ("grit_on", 1); setP ("grit_drive", 0.35f); setP ("grit_trans", 0.25f); setP ("grit_fuzz", 0.15f); setP ("grit_mix", 0.4f); setP ("grit_pos", 3);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (200);
+    }
     juce::String err;
     if (! fx.renderBlockingFx (err)) { std::printf ("render failed: %s\n", err.toRawUTF8()); return 1; }
     fx.setStatusText ("Done. Drag the box onto a track, or press play to hear it here.");

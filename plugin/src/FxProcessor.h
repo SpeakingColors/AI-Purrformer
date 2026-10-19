@@ -18,6 +18,10 @@ public:
     void prepareToPlay (double sampleRate, int blockSize) override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     juce::AudioProcessorEditor* createEditor() override;
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
+    int editorWidth() const { return editorW.load(); }       // 0 = default size
+    void setEditorWidth (int w) { editorW = w; }
 
     enum RecState { Idle = 0, Armed = 1, Recording = 2, Done = 3 };
     // message thread
@@ -48,6 +52,7 @@ private:
     void startAnalysis();
     juce::File saveResult (const juce::MemoryBlock& wav);
 
+    std::atomic<int> editorW { 0 };
     static constexpr int maxSeconds = 300;
     juce::AudioBuffer<float> rec, side;        // mono, allocated in prepareToPlay
     std::atomic<int> recStateA { Idle };

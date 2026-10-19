@@ -33,6 +33,18 @@ void FxProcessor::prepareToPlay (double sr, int blockSize)
 
 juce::AudioProcessorEditor* FxProcessor::createEditor() { return new FxEditor (*this); }
 
+void FxProcessor::getStateInformation (juce::MemoryBlock& dest)
+{
+    apvts.state.setProperty ("editorW", editorW.load(), nullptr);
+    PurrProcessor::getStateInformation (dest);
+}
+
+void FxProcessor::setStateInformation (const void* data, int size)
+{
+    PurrProcessor::setStateInformation (data, size);
+    editorW = juce::jlimit (0, 4000, (int) apvts.state.getProperty ("editorW", 0));
+}
+
 // ---- audio thread -------------------------------------------------------------------------------
 
 void FxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -198,7 +210,19 @@ bool FxProcessor::buildBody (juce::MemoryBlock& body, juce::String& err)
     job->setProperty ("voices", voicesVar());
     job->setProperty ("fx", fxVar());
     const auto keyChoice = apvts.getParameter ("key")->getCurrentValueAsText();
-    job->setProperty ("key", keyChoice == "Auto" ? juce::String ("auto") : keyChoice == "Off" ? juce::String ("off") : keyChoice);
+    job->setProperty ("key", keyChoice == "Auto" ? juce::String ("auto") : keyChoice == "Off" ? juce::String ("off")
+                             : apvts.getParameter ("tonic")->getCurrentValueAsText() + " " + apvts.getParameter ("scale")->getCurrentValueAsText());
+    {
+        static const char* const pos[5] = { "before", "between", "after", "both", "all" };
+        auto* gr = new juce::DynamicObject();
+        gr->setProperty ("enabled", P ("grit_on") > 0.5);
+        gr->setProperty ("drive", P ("grit_drive"));
+        gr->setProperty ("transistor", P ("grit_trans"));
+        gr->setProperty ("fuzz", P ("grit_fuzz"));
+        gr->setProperty ("mix", P ("grit_mix"));
+        gr->setProperty ("position", juce::String (pos[juce::jlimit (0, 4, (int) apvts.getRawParameterValue ("grit_pos")->load())]));
+        job->setProperty ("grit", juce::var (gr));
+    }
     job->setProperty ("snap_strength", P ("key_snap"));
     job->setProperty ("midi_strength", P ("midi_follow"));
     juce::Array<juce::var> jn;

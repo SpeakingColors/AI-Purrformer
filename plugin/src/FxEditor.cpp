@@ -151,10 +151,12 @@ struct FxEditor::Content : juce::Component
     juce::TextButton recBtn { "RECORD" }, discardBtn { "Discard" }, renderBtn { "RENDER" }, saveBtn { "Save .wav..." },
                      tipsBtn { "Tips" };
     Meter inMeter { "Input (your voice)" }, scMeter { "Sidechain (the song)" };
-    juce::ComboBox keyBox, voiceBox[3];
-    juce::Slider snap, follow, w[3], outLevel, dry;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aSnap, aFollow, aW[3], aOut, aDry;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> aKey;
+    juce::ComboBox keyBox, tonicBox, scaleBox, gritPos, voiceBox[3];
+    juce::ToggleButton gritOn { "On" };
+    juce::Slider snap, follow, w[3], outLevel, dry, gDrive, gTrans, gFuzz, gMix;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aSnap, aFollow, aW[3], aOut, aDry, aGd, aGt, aGf, aGm;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> aKey, aTonic, aScale, aGpos;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> aGon;
     DropBox drop { proc };
     std::vector<VoiceInfo> shownVoices;
     std::unique_ptr<juce::FileChooser> chooser;
@@ -176,11 +178,20 @@ struct FxEditor::Content : juce::Component
         setup (follow, mint, "When MIDI is sent in, how closely the voice follows those notes. 100% = exactly the MIDI.");
         setup (outLevel, sun, "Volume of the new AI voice.");
         setup (dry, sky, "How much of your original recording you still hear next to the AI voice.");
+        setup (gDrive, pink, "Drive: a smooth analog clip (odd harmonics). Same stage as in the PurrOne synth.");
+        setup (gTrans, orange, "Transistor: warm, thick, lopsided clip (even harmonics).");
+        setup (gFuzz, violet, "Fuzz: harder and lopsided. Past 80% it growls an octave up.");
+        setup (gMix, sun, "How much grit is blended in. 0% = clean, 100% = all grit.");
         for (int i = 0; i < 3; ++i) setup (w[i], i == 0 ? pink : i == 1 ? teal : orange, "How much of this voice is in the mix. Mix up to three voices.");
         aSnap = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "key_snap", snap);
         aFollow = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "midi_follow", follow);
         aOut = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "out_gain", outLevel);
         aDry = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "dry", dry);
+        for (auto* s : { &gDrive, &gTrans, &gFuzz, &gMix }) s->setTextBoxStyle (juce::Slider::TextBoxRight, false, 38, 22);
+        aGd = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "grit_drive", gDrive);
+        aGt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "grit_trans", gTrans);
+        aGf = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "grit_fuzz", gFuzz);
+        aGm = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "grit_mix", gMix);
         const char* wid[3] = { "w1", "w2", "w3" };
         for (int i = 0; i < 3; ++i)
         {
@@ -192,16 +203,28 @@ struct FxEditor::Content : juce::Component
                 if (idx >= 0 && idx < (int) shownVoices.size()) proc.setVoiceId (i, shownVoices[(size_t) idx].id);
             };
         }
-        for (auto* s : { &snap, &follow, &outLevel, &dry, &w[0], &w[1], &w[2] })
+        for (auto* s : { &snap, &follow, &outLevel, &dry, &w[0], &w[1], &w[2], &gDrive, &gTrans, &gFuzz, &gMix })
         {
             s->textFromValueFunction = [] (double v) { return pctText (v, 0); };
             s->valueFromTextFunction = [] (const juce::String& t) { return pctValue (t); };
             s->updateText();
         }
         keyBox.addItemList (proc.apvts.getParameter ("key")->getAllValueStrings(), 1);
-        keyBox.setTooltip ("Auto listens to the sidechain (the song) and picks the key. Or choose it yourself. Off = no key help.");
-        addAndMakeVisible (keyBox);
+        keyBox.setTooltip ("Auto listens to the sidechain (the song) and picks the key. Manual: you pick the note and scale. Off = no key help.");
+        tonicBox.addItemList (proc.apvts.getParameter ("tonic")->getAllValueStrings(), 1);
+        tonicBox.setTooltip ("The key note (used when Key is Manual).");
+        scaleBox.addItemList (proc.apvts.getParameter ("scale")->getAllValueStrings(), 1);
+        scaleBox.setTooltip ("The scale (used when Key is Manual). Chromatic = every note, no pull.");
+        gritPos.addItemList (proc.apvts.getParameter ("grit_pos")->getAllValueStrings(), 1);
+        gritPos.setTooltip ("Where the grit sits: on your recording before the voice model, on each AI voice, or on the finished voice. Or several.");
+        gritOn.setTooltip ("Turn the grit on or off.");
+        for (auto* c : { &keyBox, &tonicBox, &scaleBox, &gritPos }) addAndMakeVisible (c);
+        addAndMakeVisible (gritOn);
         aKey = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "key", keyBox);
+        aTonic = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "tonic", tonicBox);
+        aScale = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "scale", scaleBox);
+        aGpos = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "grit_pos", gritPos);
+        aGon = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "grit_on", gritOn);
 
         recBtn.setTooltip ("Press, then press play in your host and sing. The plugin keeps what it hears while the host plays.");
         recBtn.onClick = [this] {
@@ -278,6 +301,11 @@ struct FxEditor::Content : juce::Component
         renderBtn.setColour (juce::TextButton::buttonColourId, renderBtn.isEnabled() ? mint : well);
         renderBtn.setColour (juce::TextButton::textColourOffId, renderBtn.isEnabled() ? bg : mute);
         saveBtn.setEnabled (drop.ready());
+        { const bool man = proc.apvts.getParameter ("key")->getCurrentValueAsText() == "Manual";
+          tonicBox.setEnabled (man); scaleBox.setEnabled (man);
+          const bool go = gritOn.getToggleState();
+          for (auto* c : { &gDrive, &gTrans, &gFuzz, &gMix }) c->setEnabled (go);
+          gritPos.setEnabled (go); }
         repaint (getLocalBounds().withTrimmedBottom (0));
     }
 
@@ -298,7 +326,9 @@ struct FxEditor::Content : juce::Component
     // one place decides where everything sits; paint and resized both read it
     struct L
     {
-        juce::Rectangle<int> hdr, c1, c2, c3, c4;
+        juce::Rectangle<int> hdr, c1, c2, c3, c4, c5;
+        juce::Rectangle<int> gOn, gPos, gSl[4], gLab[4];
+        juce::Rectangle<int> tonicR, scaleR;
         juce::Rectangle<int> recRow, discardR, inM, scM, note1, note2;
         juce::Rectangle<int> keyInfo, keyL, keyR, snapL, snapR, folL, folR;
         juce::Rectangle<int> voiceRow[3], wL[3], wR[3], outL, outR, dryL, dryR;
@@ -313,6 +343,8 @@ struct FxEditor::Content : juce::Component
         auto body = r.reduced (m, 0);
         body.removeFromTop (10);
         auto top = body.removeFromTop (380);
+        body.removeFromTop (m);
+        lay.c5 = body.removeFromTop (112);
         body.removeFromTop (m);
         lay.c4 = body.withTrimmedBottom (m);
         auto left = top.removeFromLeft (top.getWidth() / 2 - m / 2);
@@ -337,6 +369,18 @@ struct FxEditor::Content : juce::Component
             lab = rr.removeFromLeft (100); ctl = rr;
         };
         line (lay.keyL, lay.keyR); line (lay.snapL, lay.snapR); line (lay.folL, lay.folR);
+        {   // key line holds three boxes: Auto/Manual/Off, note, scale
+            auto k = lay.keyR; const int w1 = k.getWidth() * 30 / 100, w2 = k.getWidth() * 20 / 100;
+            auto first = k.removeFromLeft (w1); k.removeFromLeft (4);
+            lay.tonicR = k.removeFromLeft (w2); k.removeFromLeft (4); lay.scaleR = k; lay.keyR = first;
+        }
+        auto in5 = lay.c5.reduced (14, 8); in5.removeFromTop (28);
+        {
+            auto r1 = in5.removeFromTop (28); in5.removeFromTop (4);
+            lay.gOn = r1.removeFromLeft (70); r1.removeFromLeft (6); lay.gPos = r1.removeFromLeft (220);
+            auto r2 = in5.removeFromTop (28); const int cw = r2.getWidth() / 4;
+            for (int i = 0; i < 4; ++i) { auto col = r2.removeFromLeft (cw); lay.gLab[i] = col.removeFromLeft (60); lay.gSl[i] = col.reduced (2, 0); }
+        }
 
         auto in3 = lay.c3.reduced (14, 8); in3.removeFromTop (28);
         for (int i = 0; i < 3; ++i)
@@ -374,7 +418,8 @@ struct FxEditor::Content : juce::Component
         card (g, lay.c1, "1", "Record", pink);
         card (g, lay.c2, "2", "Listen to the song", violet);
         card (g, lay.c3, "3", "Pick the voice", teal);
-        card (g, lay.c4, "4", "Render, then drag the result out", sun);
+        card (g, lay.c5, "4", "Grit (optional): Drive, Transistor, Fuzz", orange);
+        card (g, lay.c4, "5", "Render, then drag the result out", sun);
 
         g.setFont (ui (11.5f)); g.setColour (mute);
         g.drawText (proc.hasSidechain() ? "Sidechain connected: the plugin hears the song."
@@ -395,6 +440,7 @@ struct FxEditor::Content : juce::Component
         g.drawText (proc.chordsText().isNotEmpty() ? "Chords: " + proc.chordsText() : "", ki, juce::Justification::centredLeft);
 
         auto lab = [&] (const juce::String& t, juce::Rectangle<int> r) { label (g, t, r, mute, 12.0f); };
+        { const char* gl[4] = { "Drive", "Transistor", "Fuzz", "Mix" }; for (int i = 0; i < 4; ++i) lab (gl[i], lay.gLab[i]); }
         lab ("Key", lay.keyL); lab ("Snap to key", lay.snapL); lab ("Follow MIDI", lay.folL);
         for (int i = 0; i < 3; ++i) lab ("Voice " + juce::String (i + 1) + " amount", lay.wL[i]);
         lab ("AI voice level", lay.outL); lab ("Original voice", lay.dryL);
@@ -407,7 +453,10 @@ struct FxEditor::Content : juce::Component
         { auto hb = lay.hdr; tipsBtn.setBounds (hb.removeFromRight (70).reduced (6, 9)); }
         recBtn.setBounds (lay.recRow); discardBtn.setBounds (lay.discardR);
         inMeter.setBounds (lay.inM); scMeter.setBounds (lay.scM);
-        keyBox.setBounds (lay.keyR); snap.setBounds (lay.snapR); follow.setBounds (lay.folR);
+        keyBox.setBounds (lay.keyR); tonicBox.setBounds (lay.tonicR); scaleBox.setBounds (lay.scaleR);
+        gritOn.setBounds (lay.gOn); gritPos.setBounds (lay.gPos);
+        gDrive.setBounds (lay.gSl[0]); gTrans.setBounds (lay.gSl[1]); gFuzz.setBounds (lay.gSl[2]); gMix.setBounds (lay.gSl[3]);
+        snap.setBounds (lay.snapR); follow.setBounds (lay.folR);
         for (int i = 0; i < 3; ++i) { voiceBox[i].setBounds (lay.voiceRow[i]); w[i].setBounds (lay.wR[i]); }
         outLevel.setBounds (lay.outR); dry.setBounds (lay.dryR);
         renderBtn.setBounds (lay.renderR); saveBtn.setBounds (lay.saveR);
@@ -432,7 +481,9 @@ FxEditor::FxEditor (FxProcessor& p) : juce::AudioProcessorEditor (p), proc (p)
     border = std::make_unique<juce::ResizableBorderComponent> (this, &constrainer);
     border->setBorderThickness (juce::BorderSize<int> (6));
     addAndMakeVisible (*border);
-    setSize (baseW, baseH);
+    const int sw = proc.editorWidth();
+    if (sw >= baseW / 2 && sw <= baseW * 3) setSize (sw, (int) std::lround (sw * (double) baseH / baseW));
+    else setSize (baseW, baseH);
 }
 
 void FxEditor::refreshForScreenshot() { content->refreshNow(); }
@@ -445,6 +496,7 @@ FxEditor::~FxEditor()
 
 void FxEditor::resized()
 {
+    if (getWidth() > 0) proc.setEditorWidth (getWidth());
     content->setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) baseW, (float) getHeight() / (float) baseH));
     content->setBounds (0, 0, baseW, baseH);
     border->setBounds (getLocalBounds());

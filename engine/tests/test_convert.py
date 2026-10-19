@@ -73,3 +73,16 @@ def test_errors():
     assert call({"backend": "tone", "key": "H flat"}, to_wav_bytes(sung([220.0]), SR)).status_code == 400
     assert call({"backend": "tone"}, to_wav_bytes(np.zeros(100), SR)).status_code == 400
     assert call({"backend": "soulx"}, to_wav_bytes(sung([220.0]), SR)).status_code in (400, 503)
+
+
+def test_manual_scale_names():
+    from purrformer.analysis import scale_pitch_classes
+    assert scale_pitch_classes("D", "dorian") == [0, 2, 4, 5, 7, 9, 11]  # same notes as C major
+    assert scale_pitch_classes("A", "minor pentatonic") == [0, 2, 4, 7, 9]
+    assert len(scale_pitch_classes("C", "chromatic")) == 12
+    job = convert.ConvertJob(key="E blues")
+    assert convert.resolve_scale(job, np.zeros(10), 22050) == scale_pitch_classes("E", "blues")
+    import pytest
+    from purrformer.voicebank import VoiceError
+    with pytest.raises(VoiceError):
+        convert.resolve_scale(convert.ConvertJob(key="E wobble"), np.zeros(10), 22050)

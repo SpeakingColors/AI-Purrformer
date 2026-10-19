@@ -140,11 +140,29 @@ int main()
         CHECK (playFx (8.3, true) > 0.01f, "FX plays the result in time with the host");
         CHECK (playFx (1.0, true) == 0.0f, "FX is silent (original voice off) before the recording");
 
+        // manual key + scale and grit travel to the engine and the render still works
+        {
+            auto setP = [&] (const char* id, float v) { fx.apvts.getParameter (id)->setValueNotifyingHost (fx.apvts.getParameter (id)->convertTo0to1 (v)); };
+            setP ("key", 1); setP ("tonic", 2); setP ("scale", 2);          // Manual, D, dorian
+            setP ("key_snap", 1.0f);
+            setP ("grit_on", 1); setP ("grit_drive", 0.5f); setP ("grit_fuzz", 0.4f); setP ("grit_mix", 0.6f); setP ("grit_pos", 4);   // all three
+            juce::String e4;
+            CHECK (fx.renderBlockingFx (e4), ("FX render with manual key and grit: " + e4).toRawUTF8());
+            auto r4 = fx.getRendered();
+            CHECK (r4 != nullptr && r4->audio.getNumSamples() > 10000, "grit render has audio");
+            setP ("grit_on", 0); setP ("key", 0);
+        }
+
         // a loop jump ends the recording (the user recorded one pass)
         fx.armRecord();
         blockIn (16.0, true, none); blockIn (16.0 + step, true, none);
         blockIn (4.0, true, none);
         CHECK (fx.recState() == FxProcessor::Done, "a loop jump closes the recording");
+        // window size survives a save and load
+        fx.setEditorWidth (1290);
+        juce::MemoryBlock st2; fx.getStateInformation (st2);
+        FxProcessor fx2; fx2.setStateInformation (st2.getData(), (int) st2.getSize());
+        CHECK (fx2.editorWidth() == 1290, "FX state remembers the window size");
         fx.discardRecording();
         CHECK (fx.recState() == FxProcessor::Idle, "discard resets the recorder");
     }

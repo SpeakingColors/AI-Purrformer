@@ -13,6 +13,11 @@ AI PURRFORMER (the effect): 5 STEPS
 3. Press RECORD, press play in your DAW and sing, press STOP. A loop jump also ends it.
 4. Pick a voice (up to three). "Snap to key": 0% = as you sang, 100% = every note on the key.
    "Follow MIDI": how closely to follow MIDI notes if you sent any.
+   Key: Auto listens to the song. Manual lets you pick the note and the scale yourself (major, minor,
+   dorian, phrygian, lydian, mixolydian, locrian, harmonic or melodic minor, pentatonics, blues,
+   chromatic). Off = no key help.
+   Grit (optional): Drive, Transistor and Fuzz (the same stages as the PurrOne synth) with a Mix knob.
+   Place it before the voice, between (on each voice), after, before + after, or all three.
 5. Press RENDER. When done, DRAG the big pink box onto any track in your DAW. A .wav is also
    saved on your computer, and "Save .wav..." saves a copy where you want.
 The result starts where your recording started: drop it at the same bar. You can also press

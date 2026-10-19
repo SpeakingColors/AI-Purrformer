@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from . import analysis
 from .backends.base import Backend
 from .fx import apply_fx
+from .grit import GritSettings, grit
 from .job import FxSettings, Note, SingJob, VoiceSlot
 from .pitch import guide_from_notes, snap_f0, track_f0
 from .voicebank import VoiceBank, VoiceError
@@ -29,6 +30,7 @@ class ConvertJob(BaseModel):
     tempo_bpm: float = Field(default=120.0, ge=20, le=400)
     voices: list[VoiceSlot] = Field(default_factory=list)
     fx: FxSettings = FxSettings()
+    grit: GritSettings = GritSettings()  # Drive / Transistor / Fuzz with mix, see grit.py
     # key: "auto" = detect from `context` audio (sidechain/master) if sent, else from the recording
     key: str = "auto"  # "auto", "off", or like "A minor" / "C major"
     snap_strength: float = Field(default=0.0, ge=0, le=1)  # 0 = keep how it was sung
@@ -73,11 +75,10 @@ def resolve_scale(job: ConvertJob, recording, sr, context=None) -> Optional[list
         return None
     if job.key != "auto":
         tonic, _, mode = job.key.partition(" ")
-        if tonic not in analysis.NOTE_NAMES or mode not in ("major", "minor"):
-            raise VoiceError(f"key '{job.key}' not understood, use e.g. 'A minor'")
-        t = analysis.NOTE_NAMES.index(tonic)
-        steps = analysis.MAJOR_STEPS if mode == "major" else analysis.MINOR_STEPS
-        return sorted((t + s) % 12 for s in steps)
+        try:
+            return analysis.scale_pitch_classes(tonic, mode.strip().lower())
+        except ValueError:
+            raise VoiceError(f"key '{job.key}' not understood, use e.g. 'A minor' or 'D dorian'")
     src = context if context is not None else (recording, sr)
     k = analysis.detect_key(*src)
     return k["scale"] or None
@@ -100,18 +101,21 @@ def convert_job(job: ConvertJob, recording, sr: int, backend: Backend, bank: Voi
         raise VoiceError("the recording is empty or too short")
     a24 = _resample(np.asarray(recording, dtype=np.float64), sr, WORK_SR)
     scale = resolve_scale(job, recording, sr, context)
-    f0 = target_f0(job, a24, scale)
+    f0 = target_f0(job, a24, scale)  # pitch comes from the clean take, grit never confuses the tracker
+    a_in = grit(a24, job.grit, WORK_SR, "before")
     slots = [s for s in job.normalised_voices() if s.weight > 0]
     mix = np.zeros(0)
     for s in (slots or [None]):
         voice = bank.get(s.id) if s else None
-        a = backend.convert(a24, WORK_SR, f0, voice)
+        a = backend.convert(a_in, WORK_SR, f0, voice)
         a = _resample(a, WORK_SR, job.sample_rate)
+        a = grit(a, job.grit, job.sample_rate, "between")
         w = s.weight if s else 1.0
         if len(a) > len(mix):
             mix = np.pad(mix, (0, len(a) - len(mix)))
         mix[:len(a)] += w * a
     sing = SingJob(sample_rate=job.sample_rate, tempo_bpm=job.tempo_bpm, fx=job.fx)
     out = apply_fx(mix, sing)
+    out = grit(out, job.grit, job.sample_rate, "after")
     peak = float(np.max(np.abs(out))) if len(out) else 0.0
     return out / peak * 0.9 if peak > 1 else out

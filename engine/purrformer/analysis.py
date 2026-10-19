@@ -17,6 +17,26 @@ _MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2
 _MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 MAJOR_STEPS = (0, 2, 4, 5, 7, 9, 11)
 MINOR_STEPS = (0, 2, 3, 5, 7, 8, 10)  # natural minor
+# Scales you can pick by hand. "chromatic" = every note (no pull toward a key).
+SCALES = {
+    "major": MAJOR_STEPS, "minor": MINOR_STEPS,
+    "dorian": (0, 2, 3, 5, 7, 9, 10), "phrygian": (0, 1, 3, 5, 7, 8, 10),
+    "lydian": (0, 2, 4, 6, 7, 9, 11), "mixolydian": (0, 2, 4, 5, 7, 9, 10),
+    "locrian": (0, 1, 3, 5, 6, 8, 10),
+    "harmonic minor": (0, 2, 3, 5, 7, 8, 11), "melodic minor": (0, 2, 3, 5, 7, 9, 11),
+    "major pentatonic": (0, 2, 4, 7, 9), "minor pentatonic": (0, 3, 5, 7, 10),
+    "blues": (0, 3, 5, 6, 7, 10), "chromatic": tuple(range(12)),
+}
+
+
+def scale_pitch_classes(tonic: str, scale: str):
+    """Pitch classes (0..11) of e.g. ('D', 'dorian'). Raises ValueError on unknown names."""
+    if tonic not in NOTE_NAMES:
+        raise ValueError(f"unknown note '{tonic}'")
+    if scale not in SCALES:
+        raise ValueError(f"unknown scale '{scale}'")
+    t = NOTE_NAMES.index(tonic)
+    return sorted({(t + s) % 12 for s in SCALES[scale]})
 
 
 def _mono(x: np.ndarray) -> np.ndarray:

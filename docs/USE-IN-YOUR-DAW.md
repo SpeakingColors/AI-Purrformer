@@ -23,7 +23,9 @@ Everything runs on your computer. No account, no cloud.
 
 ![Recording](img/fx-2-recording.png)
 
-**4. Listen and choose.** The plugin shows the key it found and the chords. Pick a voice (you can mix up to three). *Snap to key* pulls your notes onto the song's key: 0% keeps your singing as it was, 100% puts every note exactly on the scale. *Follow MIDI* decides how closely the voice follows MIDI notes if you sent any.
+**4. Listen and choose.** The plugin shows the key it found and the chords. Pick a voice (you can mix up to three). *Snap to key* pulls your notes onto the song's key: 0% keeps your singing as it was, 100% puts every note exactly on the scale. *Follow MIDI* decides how closely the voice follows MIDI notes if you sent any. Not happy with the key it found? Set *Key* to *Manual* and pick the note and the scale yourself (13 scales, from major and minor to blues and chromatic).
+
+**4b. Add grit (optional).** The *Grit* card has *Drive* (smooth analog clip), *Transistor* (warm and thick) and *Fuzz* (harder, growls past 80%), with a *Mix* knob. Choose where it sits: *Before the voice* (on your recording, so the voice model hears a dirtier input), *Between* (on each AI voice, before they are blended), *After the voice*, *Before + after* (light before, full after) or *All three*.
 
 ![Recorded](img/fx-3-recorded.png)
 
