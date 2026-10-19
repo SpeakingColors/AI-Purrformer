@@ -17,7 +17,6 @@ from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
-from scipy.signal import resample_poly
 
 POSITIONS = ("before", "between", "after", "both", "all")
 PRE_AMT = 0.4  # same light amount as PurrOne's pre-filter stage
@@ -78,15 +77,32 @@ def shaper(x, drive, xs, fuzz):
     return y
 
 
+_FIR = None
+
+
+def _fir():
+    """47 tap windowed sinc, cutoff just under the original Nyquist at 4x, unity DC gain."""
+    global _FIR
+    if _FIR is None:
+        n = 47
+        t = np.arange(n) - (n - 1) / 2
+        fc = 0.5 / 4 * 0.92
+        h = 2 * fc * np.sinc(2 * fc * t) * (0.5 - 0.5 * np.cos(2 * np.pi * np.arange(n) / (n - 1)))
+        _FIR = h / h.sum()
+    return _FIR
+
+
+def _lowpass(x):
+    h = _fir()
+    return np.convolve(x, h, mode="full")[(len(h) - 1) // 2:(len(h) - 1) // 2 + len(x)]
+
+
 def _dc_block(y, sr):
-    a = 1.0 - 2.0 * np.pi * 20.0 / sr
-    out = np.empty_like(y)
-    px = py = 0.0
-    for i, v in enumerate(y):  # one pole, only a few hundred thousand samples
-        py = v - px + a * py
-        px = v
-        out[i] = py
-    return out
+    """Remove the slow offset (below about 20 Hz) with a moving average, same in the browser demo."""
+    w = max(3, int(sr / 20) | 1)
+    p = np.pad(y, (w // 2, w // 2), mode="edge")
+    c = np.concatenate([[0.0], np.cumsum(p)])
+    return y - (c[w:w + len(y)] - c[:len(y)]) / w
 
 
 def grit(x, g: GritSettings, sr: int, where: str):
@@ -105,9 +121,10 @@ def grit(x, g: GritSettings, sr: int, where: str):
     # voice recordings are quiet; drive the stages from a normalised copy so the knobs mean the same on any level
     peak = float(np.max(np.abs(x)))
     norm = (0.9 / peak) if peak > 1e-6 else 1.0
-    up = resample_poly(x * norm, 4, 1)
-    y = shaper(up, d, t, f) * make
-    y = resample_poly(y, 1, 4)[:len(x)]
+    up = np.zeros(len(x) * 4)
+    up[::4] = x * norm * 4
+    up = _lowpass(up)
+    y = _lowpass(shaper(up, d, t, f) * make)[::4]
     y = _dc_block(y, sr) / norm
     if len(y) < len(x):
         y = np.pad(y, (0, len(x) - len(y)))
