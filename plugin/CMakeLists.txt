@@ -3,10 +3,10 @@ project(AIPurrformer VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# JUCE: pass -DJUCE_DIR=/path/to/JUCE, or it is fetched from GitHub (tag 8.0.4).
+# JUCE: pass -DJUCE_DIR=/path/to/JUCE, or it is fetched from GitHub (tag 8.0.16-security).
 if(NOT JUCE_DIR)
   include(FetchContent)
-  FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git GIT_TAG 8.0.4 GIT_SHALLOW ON)
+  FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git GIT_TAG 8.0.16-security GIT_SHALLOW ON)
   FetchContent_MakeAvailable(JUCE)
 else()
   add_subdirectory(${JUCE_DIR} juce)
