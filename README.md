@@ -46,3 +46,11 @@ This is offline processing: render a clip, get audio back. It is not live. Live 
 ## License
 
 Code: AGPL-3.0 (see `LICENSE`). Voice models and weights have their own terms; see `docs/ENGINES.md`. Only train and convert with voices you have the rights to use.
+
+## Support
+
+<p align="center">
+  <a href="https://ko-fi.com/studio87"><img src="https://img.shields.io/badge/Support_Studio_87-on_Ko--fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Support Studio 87 on Ko-fi"></a>
+</p>
+
+☕ Free and open source, made by one person. If it helps your music, a coffee on [Ko-fi](https://ko-fi.com/studio87) keeps it coming. 💜
