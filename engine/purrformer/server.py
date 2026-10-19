@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 
 from . import backends
+from .analysis import analyze
 from .job import SingJob
 from .midi import parse_midi
 from .models import downloader, setup_env
@@ -60,6 +61,17 @@ async def midi_parse(request: Request):
     except Exception as exc:  # mido raises several error types on bad files
         raise HTTPException(status_code=400, detail=f"not a valid MIDI file: {exc}")
     return {"tempo_bpm": parsed.tempo_bpm, "notes": [n.model_dump() for n in parsed.notes]}
+
+
+@app.post("/analyze")
+async def analyze_audio(request: Request):
+    """Body: WAV bytes (the song or sidechain audio). Returns detected key and chords."""
+    from .voicepack import read_wav
+    try:
+        audio, sr = read_wav(await request.body())
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"not a readable WAV: {exc}")
+    return analyze(audio, sr)
 
 
 @app.get("/voices")
