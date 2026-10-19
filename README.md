@@ -61,3 +61,6 @@ Code: AGPL-3.0 (see `LICENSE`). Voice models and weights have their own terms; s
 </p>
 
 ☕ Free and open source, made by one person. If it helps your music, a coffee on [Ko-fi](https://ko-fi.com/studio87) keeps it coming. 💜
+
+
+**Routing per DAW (sidechain, MIDI, result):** [docs/DAW-GUIDES.md](docs/DAW-GUIDES.md)

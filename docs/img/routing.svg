@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 330" font-family="system-ui,sans-serif" font-size="15">
+<rect width="860" height="330" rx="14" fill="#0E0B1F"/>
+<g fill="#171233" stroke="#3A2F7A" stroke-width="2">
+<rect x="24" y="30" width="190" height="64" rx="12"/><rect x="24" y="130" width="190" height="64" rx="12"/><rect x="24" y="230" width="190" height="64" rx="12"/>
+<rect x="320" y="70" width="230" height="170" rx="14" stroke="#FF3FB0"/><rect x="650" y="150" width="190" height="64" rx="12" stroke="#55FFB6"/></g>
+<g fill="#F3EEFF" font-weight="700"><text x="119" y="58" text-anchor="middle">Track 1: your voice</text><text x="119" y="158" text-anchor="middle">Track 2: the song / master</text><text x="119" y="258" text-anchor="middle">Track 3: MIDI melody</text>
+<text x="435" y="105" text-anchor="middle" fill="#FF3FB0" font-size="18">AI Purrformer</text><text x="745" y="178" text-anchor="middle" fill="#55FFB6">New audio track</text></g>
+<g fill="#A99CD6" font-size="13"><text x="119" y="78" text-anchor="middle">plugin sits here (audio in)</text><text x="119" y="178" text-anchor="middle">goes to the sidechain</text><text x="119" y="278" text-anchor="middle">goes to the MIDI input</text>
+<text x="435" y="135" text-anchor="middle">1 Record  2 Listen  3 Voice</text><text x="435" y="160" text-anchor="middle">4 Grit  5 Render</text><text x="435" y="210" text-anchor="middle">result box: DRAG ME</text><text x="745" y="198" text-anchor="middle">drop the result here</text></g>
+<g stroke="#FFEE5E" stroke-width="3" fill="none" marker-end="url(#a)"><path d="M214 62 H320"/><path d="M214 162 H320" stroke="#6EC8F5"/><path d="M214 262 H300 Q320 262 320 240" stroke="#B64EFF"/><path d="M550 160 H650" stroke="#55FFB6" stroke-dasharray="8 6"/></g>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="#FFEE5E"/></marker></defs>
+<text x="430" y="310" fill="#A99CD6" font-size="13" text-anchor="middle">Drawn diagram, not a screenshot. Blue = sidechain, purple = MIDI (optional).</text>
+</svg>

@@ -33,6 +33,18 @@ int main (int argc, char** argv)
     juce::File dir = argc > 1 ? juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]) : juce::File::getCurrentWorkingDirectory();
     dir.createDirectory();
 
+    if (argc > 2 && juce::String (argv[2]) == "sing")
+    {
+        PurrProcessor sing;
+        sing.setRateAndBufferSizeDetails (44100.0, 512);
+        sing.prepareToPlay (44100.0, 512);
+        sing.refreshHealth(); sing.refreshVoices();
+        std::unique_ptr<juce::AudioProcessorEditor> e2 (sing.createEditor());
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (600);
+        shot (*e2, dir.getChildFile ("sing-1.png"));
+        return 0;
+    }
+
     FxProcessor fx;
     FakeHost host;
     fx.setPlayHead (&host);
