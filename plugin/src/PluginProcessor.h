@@ -21,7 +21,7 @@ struct Rendered
 class PurrProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
-    PurrProcessor();
+    PurrProcessor() : PurrProcessor (defaultBuses()) {}
     ~PurrProcessor() override;
 
     // juce::AudioProcessor
@@ -81,17 +81,30 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-private:
+protected:
+    explicit PurrProcessor (BusesProperties buses);
+    static BusesProperties defaultBuses() { return BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true); }
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
-    void timerCallback() override;
+    struct Transport { double ppq = 0.0, bpm = 0.0; bool playing = false; };
+    Transport readTransport();                 // audio thread
+    void captureMidi (const juce::MidiBuffer&, const Transport&);   // audio thread, when capturing
+    void playRendered (juce::AudioBuffer<float>&, const Transport&, float gain, bool replace);
+    juce::var voicesVar() const;
+    juce::var fxVar() const;
     bool installRendered (const juce::MemoryBlock& wav, double originBeats, double tempo, juce::String& err);
+    double hostSr = 44100.0;
+    juce::ThreadPool pool { 1 };      // renders
+    juce::ThreadPool ioPool { 1 };    // health and voice list
+    std::atomic<bool> capturing { false };
+    std::atomic<double> hostTempo { 120.0 };
+    std::atomic<double> lastPpq { 0.0 };
+
+private:
+    void timerCallback() override;
 
     struct CapEv { double ppq; std::uint8_t pitch, vel, on; };
     juce::AbstractFifo fifo { 8192 };
     std::array<CapEv, 8192> fifoData {};
-    std::atomic<bool> capturing { false };
-    std::atomic<double> hostTempo { 120.0 };
-    std::atomic<double> lastPpq { 0.0 };
     std::map<int, std::pair<double, int>> pending;   // pitch -> (start, velocity)
 
     mutable juce::CriticalSection notesLock;
@@ -106,9 +119,6 @@ private:
     std::array<juce::String, 3> voiceIds { "test-sine", "test-saw", "test-square" };
     std::vector<VoiceInfo> voices;
 
-    double hostSr = 44100.0;
-    juce::ThreadPool pool { 1 };      // renders
-    juce::ThreadPool ioPool { 1 };    // health and voice list
     std::vector<std::shared_ptr<const Rendered>> retired;
     std::atomic<int> renderCounter { 0 };
     int healthTick = 0;

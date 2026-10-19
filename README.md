@@ -6,16 +6,22 @@ Free, open source AI singing voice tool for Linux. Part of the cat plugin suite 
 
 **Goal:** sing badly, get a much better voice back: on time, on key, in tune with the song. Bonus: a lyric notepad and helper.
 
-**Status:** research and planning. No working code yet.
+**Status:** early build (v0.1). The pipeline works end to end with a test voice; the real AI voice is not tested yet. See [Use it in your DAW](docs/USE-IN-YOUR-DAW.md).
 
-## How it works (planned)
+## How it works
 
-1. A JUCE VST3/CLAP plugin takes lyrics and a MIDI melody (or a clip) from the DAW.
-2. It sends the clip to a local engine (Python, runs on your GPU in a container).
-3. The engine sings your lyrics on the melody you give it (MIDI or a guide vocal), in the chosen voice. Your own pitch is not used.
-4. The result comes back and lands on the track.
+You sing on a track. The plugin (an effect with audio in, a sidechain and MIDI in) listens while your DAW plays, finds the key of the song, and re-sings your take in an AI voice, on key and on time. Then you **drag the result onto any track**.
 
-This is offline processing: render a clip, get audio back. It is not live. Live voice replacement is a research item, not a promise.
+![AI Purrformer](docs/img/fx-4-result.png)
+
+1. Put **AI Purrformer** on your vocal track and press **Record**, then play your DAW and sing.
+2. Optional: send the master to the sidechain (it finds the key and chords), or MIDI from another track (it follows those notes).
+3. Pick a voice, press **Render**.
+4. Drag the pink box onto a track (a .wav is saved too).
+
+Two plugins come in the install: **AI Purrformer** (effect, your voice in) and **AI Purrformer Sing** (instrument, MIDI and lyrics in, works in every host). Everything runs locally on your computer. It records and renders, it is not live.
+
+Step by step with pictures: [Use it in your DAW](docs/USE-IN-YOUR-DAW.md).
 
 ## Target setup
 
@@ -34,6 +40,7 @@ This is offline processing: render a clip, get audio back. It is not live. Live 
 
 ## Docs
 
+- [Use it in your DAW (start here)](docs/USE-IN-YOUR-DAW.md)
 - [Engine research](docs/ENGINES.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Install on Bazzite](docs/INSTALL-BAZZITE.md)

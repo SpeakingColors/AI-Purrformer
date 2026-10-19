@@ -22,13 +22,21 @@ Layout PurrProcessor::makeLayout()
     flt ("dirt_arts", "Artifacts", 0.0f); flt ("dirt_mix", "Dirt mix", 1.0f);
     flt ("w1", "Voice 1 weight", 0.5f);   flt ("w2", "Voice 2 weight", 0.3f);       flt ("w3", "Voice 3 weight", 0.2f);
     flt ("out_gain", "Output level", 0.8f);
+    // audio-in (FX) version
+    flt ("key_snap", "Key snap", 0.0f);   flt ("midi_follow", "Follow MIDI", 1.0f);
+    flt ("dry", "Original voice level", 0.0f);
+    bl ("monitor", "Hear input while recording", true);
+    juce::StringArray keys { "Auto", "Off" };
+    for (auto* t : { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }) keys.add (juce::String (t) + " major");
+    for (auto* t : { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }) keys.add (juce::String (t) + " minor");
+    l.add (std::make_unique<juce::AudioParameterChoice> (P { "key", 1 }, "Key", keys, 0));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "mode", 1 }, "Mode", juce::StringArray { "melody_leads", "voice_leads" }, 0));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "blend", 1 }, "Blend", juce::StringArray { "layer", "embedding" }, 0));
     return l;
 }
 
-PurrProcessor::PurrProcessor()
-    : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+PurrProcessor::PurrProcessor (BusesProperties buses)
+    : AudioProcessor (std::move (buses)),
       apvts (*this, nullptr, "PURR", makeLayout())
 {
     startTimerHz (4);
@@ -51,62 +59,70 @@ void PurrProcessor::prepareToPlay (double sr, int) { hostSr = sr; }
 
 // ---- audio thread -------------------------------------------------------------------------------
 
-void PurrProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+PurrProcessor::Transport PurrProcessor::readTransport()
 {
-    juce::ScopedNoDenormals noDenormals;
-    buffer.clear();
-
-    double ppq = 0.0, bpm = 0.0;
-    bool playing = false;
+    Transport t;
     if (auto* ph = getPlayHead())
         if (auto pos = ph->getPosition())
         {
-            ppq = pos->getPpqPosition().orFallback (0.0);
-            bpm = pos->getBpm().orFallback (0.0);
-            playing = pos->getIsPlaying();
+            t.ppq = pos->getPpqPosition().orFallback (0.0);
+            t.bpm = pos->getBpm().orFallback (0.0);
+            t.playing = pos->getIsPlaying();
         }
-    if (bpm > 0.0) hostTempo.store (bpm);
-    lastPpq.store (ppq);
+    if (t.bpm > 0.0) hostTempo.store (t.bpm);
+    lastPpq.store (t.ppq);
+    return t;
+}
 
-    if (capturing.load() && playing && bpm > 0.0)
+void PurrProcessor::captureMidi (const juce::MidiBuffer& midi, const Transport& t)
+{
+    for (const auto meta : midi)
     {
-        for (const auto meta : midi)
+        auto m = meta.getMessage();
+        if (! (m.isNoteOn() || m.isNoteOff())) continue;
+        int s1, b1, s2, b2;
+        fifo.prepareToWrite (1, s1, b1, s2, b2);
+        if (b1 > 0)
         {
-            auto m = meta.getMessage();
-            if (! (m.isNoteOn() || m.isNoteOff())) continue;
-            int s1, b1, s2, b2;
-            fifo.prepareToWrite (1, s1, b1, s2, b2);
-            if (b1 > 0)
-            {
-                fifoData[(size_t) s1] = { ppq + meta.samplePosition * bpm / 60.0 / hostSr, (std::uint8_t) m.getNoteNumber(),
-                                          (std::uint8_t) m.getVelocity(), (std::uint8_t) (m.isNoteOn() ? 1 : 0) };
-                fifo.finishedWrite (1);
-            }
+            fifoData[(size_t) s1] = { t.ppq + meta.samplePosition * t.bpm / 60.0 / hostSr, (std::uint8_t) m.getNoteNumber(),
+                                      (std::uint8_t) m.getVelocity(), (std::uint8_t) (m.isNoteOn() ? 1 : 0) };
+            fifo.finishedWrite (1);
         }
     }
+}
 
+// Plays the rendered result at the host position. replace = overwrite the buffer, else add to it.
+void PurrProcessor::playRendered (juce::AudioBuffer<float>& buffer, const Transport& t, float gain, bool replace)
+{
     std::shared_ptr<const Rendered> r;
     {
         juce::SpinLock::ScopedTryLockType lock (renderLock);
         if (lock.isLocked()) r = rendered;
     }
-    if (r != nullptr && playing && ! capturing.load() && r->tempo > 0.0)
+    if (r == nullptr || ! t.playing || r->tempo <= 0.0) return;
+    const auto startSample = (juce::int64) std::llround ((t.ppq - r->originBeats) * 60.0 / r->tempo * r->sampleRate);
+    const int total = r->audio.getNumSamples();
+    const int n = buffer.getNumSamples();
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
-        const auto startSample = (juce::int64) std::llround ((ppq - r->originBeats) * 60.0 / r->tempo * r->sampleRate);
-        const int total = r->audio.getNumSamples();
-        const int n = buffer.getNumSamples();
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        auto* dst = buffer.getWritePointer (ch);
+        auto* src = r->audio.getReadPointer (juce::jmin (ch, r->audio.getNumChannels() - 1));
+        for (int i = 0; i < n; ++i)
         {
-            auto* dst = buffer.getWritePointer (ch);
-            auto* src = r->audio.getReadPointer (juce::jmin (ch, r->audio.getNumChannels() - 1));
-            for (int i = 0; i < n; ++i)
-            {
-                auto idx = startSample + i;
-                if (idx >= 0 && idx < total) dst[i] = src[idx];
-            }
+            auto idx = startSample + i;
+            if (idx >= 0 && idx < total) dst[i] = (replace ? 0.0f : dst[i]) + src[idx] * gain;
         }
-        buffer.applyGain (apvts.getRawParameterValue ("out_gain")->load());
     }
+}
+
+void PurrProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    juce::ScopedNoDenormals noDenormals;
+    buffer.clear();
+    const auto t = readTransport();
+    if (capturing.load() && t.playing && t.bpm > 0.0) captureMidi (midi, t);
+    if (! capturing.load())
+        playRendered (buffer, t, apvts.getRawParameterValue ("out_gain")->load(), true);
     midi.clear();
 }
 
@@ -169,6 +185,56 @@ std::vector<NoteEv> PurrProcessor::getNotes() const
 
 // ---- rendering ----------------------------------------------------------------------------------
 
+juce::var PurrProcessor::voicesVar() const
+{
+    auto P = [this] (const char* id) { return (double) apvts.getRawParameterValue (id)->load(); };
+    auto obj = [] { return new juce::DynamicObject(); };
+    juce::Array<juce::var> jv;
+    const char* wid[3] = { "w1", "w2", "w3" };
+    auto ids = getVoiceIds();
+    for (int i = 0; i < 3; ++i)
+        if (ids[(size_t) i].isNotEmpty() && P (wid[i]) > 0.0)
+        {
+            auto* o = obj();
+            o->setProperty ("id", ids[(size_t) i]);
+            o->setProperty ("weight", P (wid[i]));
+            jv.add (juce::var (o));
+        }
+    if (jv.isEmpty() && ids[0].isNotEmpty())
+    {
+        auto* o = obj(); o->setProperty ("id", ids[0]); o->setProperty ("weight", 1.0); jv.add (juce::var (o));
+    }
+    return juce::var (jv);
+}
+
+juce::var PurrProcessor::fxVar() const
+{
+    auto P = [this] (const char* id) { return (double) apvts.getRawParameterValue (id)->load(); };
+    auto obj = [] { return new juce::DynamicObject(); };
+    auto* robot = obj();
+    robot->setProperty ("enabled", P ("robot_on") > 0.5);
+    robot->setProperty ("retune_speed", P ("robot_speed"));
+    robot->setProperty ("mix", P ("robot_mix"));
+    auto* saw = obj();
+    saw->setProperty ("enabled", P ("saw_on") > 0.5);
+    saw->setProperty ("copies", (int) std::lround (P ("saw_copies")));
+    saw->setProperty ("detune", P ("saw_detune"));
+    saw->setProperty ("mix", P ("saw_mix"));
+    saw->setProperty ("spread", P ("saw_spread"));
+    saw->setProperty ("widen", P ("saw_widen"));
+    auto* dirt = obj();
+    dirt->setProperty ("enabled", P ("dirt_on") > 0.5);
+    dirt->setProperty ("drive", P ("dirt_drive"));
+    dirt->setProperty ("bitcrush", P ("dirt_crush"));
+    dirt->setProperty ("artifacts", P ("dirt_arts"));
+    dirt->setProperty ("mix", P ("dirt_mix"));
+    auto* fx = obj();
+    fx->setProperty ("robot", juce::var (robot));
+    fx->setProperty ("supersaw", juce::var (saw));
+    fx->setProperty ("dirt", juce::var (dirt));
+    return juce::var (fx);
+}
+
 juce::String PurrProcessor::buildJobJson (double& originOut) const
 {
     auto notesCopy = getNotes();
@@ -181,7 +247,6 @@ juce::String PurrProcessor::buildJobJson (double& originOut) const
     const double origin = std::floor (minStart / 4.0) * 4.0;
     originOut = origin;
 
-    auto P = [this] (const char* id) { return (double) apvts.getRawParameterValue (id)->load(); };
     auto obj = [] { return new juce::DynamicObject(); };
 
     auto* job = obj();
@@ -208,47 +273,8 @@ juce::String PurrProcessor::buildJobJson (double& originOut) const
     auto text = lyrics();
     if (text.isNotEmpty()) job->setProperty ("lyrics", text);
 
-    juce::Array<juce::var> jv;
-    const char* wid[3] = { "w1", "w2", "w3" };
-    auto ids = getVoiceIds();
-    double sum = 0.0;
-    for (int i = 0; i < 3; ++i)
-        if (ids[(size_t) i].isNotEmpty() && P (wid[i]) > 0.0)
-        {
-            auto* o = obj();
-            o->setProperty ("id", ids[(size_t) i]);
-            o->setProperty ("weight", P (wid[i]));
-            jv.add (juce::var (o));
-            sum += P (wid[i]);
-        }
-    if (jv.isEmpty() && ids[0].isNotEmpty())
-    {
-        auto* o = obj(); o->setProperty ("id", ids[0]); o->setProperty ("weight", 1.0); jv.add (juce::var (o));
-    }
-    job->setProperty ("voices", jv);
-
-    auto* robot = obj();
-    robot->setProperty ("enabled", P ("robot_on") > 0.5);
-    robot->setProperty ("retune_speed", P ("robot_speed"));
-    robot->setProperty ("mix", P ("robot_mix"));
-    auto* saw = obj();
-    saw->setProperty ("enabled", P ("saw_on") > 0.5);
-    saw->setProperty ("copies", (int) std::lround (P ("saw_copies")));
-    saw->setProperty ("detune", P ("saw_detune"));
-    saw->setProperty ("mix", P ("saw_mix"));
-    saw->setProperty ("spread", P ("saw_spread"));
-    saw->setProperty ("widen", P ("saw_widen"));
-    auto* dirt = obj();
-    dirt->setProperty ("enabled", P ("dirt_on") > 0.5);
-    dirt->setProperty ("drive", P ("dirt_drive"));
-    dirt->setProperty ("bitcrush", P ("dirt_crush"));
-    dirt->setProperty ("artifacts", P ("dirt_arts"));
-    dirt->setProperty ("mix", P ("dirt_mix"));
-    auto* fx = obj();
-    fx->setProperty ("robot", juce::var (robot));
-    fx->setProperty ("supersaw", juce::var (saw));
-    fx->setProperty ("dirt", juce::var (dirt));
-    job->setProperty ("fx", juce::var (fx));
+    job->setProperty ("voices", voicesVar());
+    job->setProperty ("fx", fxVar());
     return juce::JSON::toString (juce::var (job), true);
 }
 
@@ -408,4 +434,9 @@ void PurrProcessor::setStateInformation (const void* data, int size)
 juce::AudioProcessorEditor* PurrProcessor::createEditor() { return new PurrEditor (*this); }
 } // namespace purr
 
+#ifdef PURR_FX
+#include "FxProcessor.h"
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new purr::FxProcessor(); }
+#else
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new purr::PurrProcessor(); }
+#endif

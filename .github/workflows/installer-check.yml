@@ -13,8 +13,8 @@ jobs:
       - name: Make dummy dist
         shell: bash
         run: |
-          mkdir -p "dist/AI Purrformer.vst3" dist/engine dist/python dist/site-packages
-          for f in "dist/AI Purrformer.vst3/x" dist/engine/x dist/python/x dist/site-packages/x dist/start-engine.bat dist/INSTALL.txt dist/MANUAL.txt dist/LICENSE; do echo x > "$f"; done
+          mkdir -p "dist/AI Purrformer.vst3" "dist/AI Purrformer Sing.vst3" dist/engine dist/python dist/site-packages
+          for f in "dist/AI Purrformer.vst3/x" "dist/AI Purrformer Sing.vst3/x" dist/engine/x dist/python/x dist/site-packages/x dist/start-engine.bat dist/INSTALL.txt dist/MANUAL.txt dist/LICENSE; do echo x > "$f"; done
       - name: Compile installer
         shell: pwsh
         run: |

@@ -38,6 +38,9 @@ public:
     bool listVoices (std::vector<VoiceInfo>& out, juce::String& err) const;
     bool parseMidi (const juce::MemoryBlock& midi, double& tempo, std::vector<NoteEv>& notes, juce::String& err) const;
     bool sing (const juce::String& jobJson, juce::MemoryBlock& wav, juce::String& err) const;
+    // Audio-in path: body = 4-byte JSON length + job JSON + recording WAV (+ optional context WAV).
+    bool convert (const juce::MemoryBlock& body, juce::MemoryBlock& wav, juce::String& err) const;
+    bool analyze (const juce::MemoryBlock& wav, juce::String& keyText, juce::String& chordsText, juce::String& err) const;
     bool importVoice (const juce::String& name, const juce::String& rights, bool confirmed,
                       const juce::MemoryBlock& wav, juce::String& err) const;
     bool modelStatus (ModelStatus& out) const;

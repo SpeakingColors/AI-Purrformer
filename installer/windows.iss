@@ -34,6 +34,7 @@ SelectDirBrowseLabel=Click Next to continue, or Browse to pick another folder fo
 
 [Files]
 Source: "..\dist\AI Purrformer.vst3\*"; DestDir: "{commoncf64}\VST3\AI Purrformer.vst3"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\AI Purrformer Sing.vst3\*"; DestDir: "{commoncf64}\VST3\AI Purrformer Sing.vst3"; Flags: recursesubdirs ignoreversion
 Source: "..\dist\engine\*"; DestDir: "{app}\engine"; Flags: recursesubdirs ignoreversion
 Source: "..\dist\python\*"; DestDir: "{app}\python"; Flags: recursesubdirs ignoreversion
 Source: "..\dist\site-packages\*"; DestDir: "{app}\site-packages"; Flags: recursesubdirs ignoreversion

@@ -60,6 +60,7 @@ jobs:
         run: |
           mkdir -p dist
           cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
+          cp -r "plugin/build/AIPurrformerSing_artefacts/Release/VST3/AI Purrformer Sing.vst3" dist/
           cp -r engine dist/engine
           rm -rf dist/engine/.venv dist/engine/.pytest_cache
           mkdir -p dist/engine/bundled_voices

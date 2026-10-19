@@ -40,6 +40,7 @@ jobs:
         run: |
           mkdir -p dist/engine
           cp -r "plugin/build/AIPurrformer_artefacts/Release/VST3/AI Purrformer.vst3" dist/
+          cp -r "plugin/build/AIPurrformerSing_artefacts/Release/VST3/AI Purrformer Sing.vst3" dist/
           cp -r engine/purrformer engine/third_party engine/requirements.txt engine/requirements-runtime.txt dist/engine/
           find dist -name __pycache__ -prune -exec rm -rf {} \; || true
           cp docs/INSTALL.txt docs/MANUAL.txt docs/BUILD.md dist/

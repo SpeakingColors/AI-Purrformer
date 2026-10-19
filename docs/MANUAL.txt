@@ -1,13 +1,31 @@
 AI PURRFORMER: QUICK MANUAL
 ===========================
 
-THE IDEA
+TWO PLUGINS
+AI Purrformer        (effect)      your recorded voice becomes the AI voice. Start here.
+AI Purrformer Sing   (instrument)  MIDI notes and lyrics in, AI voice out. Works in every DAW.
+Everything runs on your computer. Start the Engine first (Start menu: AI Purrformer Engine).
+
+AI PURRFORMER (the effect): 5 STEPS
+1. Put it as an effect on the track where you sing. The header says "Engine: running".
+2. Optional: send the master or a track to the plugin's SIDECHAIN. It finds the key and the
+   chords. Optional: send MIDI from another track, the voice then follows those notes.
+3. Press RECORD, press play in your DAW and sing, press STOP. A loop jump also ends it.
+4. Pick a voice (up to three). "Snap to key": 0% = as you sang, 100% = every note on the key.
+   "Follow MIDI": how closely to follow MIDI notes if you sent any.
+5. Press RENDER. When done, DRAG the big pink box onto any track in your DAW. A .wav is also
+   saved on your computer, and "Save .wav..." saves a copy where you want.
+The result starts where your recording started: drop it at the same bar. You can also press
+play and hear it from the plugin, in time with the DAW. It is not live: it records, then renders.
+Pictures: see docs/USE-IN-YOUR-DAW.md in the repository.
+
+AI PURRFORMER SING (the instrument): THE IDEA
 You give it a melody as MIDI (and optional lyrics). It sings that melody with an AI voice that is
 in tune and on time. Your own voice is never used for pitch. Everything runs on your computer.
 The plugin (what you see in your DAW) talks to the Engine (the black window) on your computer.
 
 FIRST SONG (5 steps)
-1. Make an instrument track with AI Purrformer. Put a MIDI clip with ONE melody line on it
+1. Make an instrument track with AI Purrformer Sing. Put a MIDI clip with ONE melody line on it
    (one note at a time).
 2. In the plugin, press "Capture from host", press play in your DAW, let the clip play once,
    then press "Stop capturing". You can also load a .mid file with "Open .mid...".

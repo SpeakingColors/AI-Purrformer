@@ -135,6 +135,31 @@ bool EngineClient::sing (const juce::String& jobJson, juce::MemoryBlock& wav, ju
     return true;
 }
 
+bool EngineClient::convert (const juce::MemoryBlock& body, juce::MemoryBlock& wav, juce::String& err) const
+{
+    int status = 0;
+    if (! request ("POST", "/convert", &body, "application/octet-stream", wav, status, 600000)) { err = "engine not reachable"; return false; }
+    if (status != 200) { err = errorText (wav, status); return false; }
+    return true;
+}
+
+bool EngineClient::analyze (const juce::MemoryBlock& wav, juce::String& keyText, juce::String& chordsText, juce::String& err) const
+{
+    juce::MemoryBlock out; int status = 0;
+    if (! request ("POST", "/analyze", &wav, "application/octet-stream", out, status, 60000)) { err = "engine not reachable"; return false; }
+    if (status != 200) { err = errorText (out, status); return false; }
+    auto v = juce::JSON::parse (out.toString());
+    auto key = v["key"];
+    if (key["tonic"].isVoid() || key["tonic"].toString().isEmpty()) keyText = "no clear key";
+    else keyText = key["tonic"].toString() + " " + key["mode"].toString()
+                   + " (" + juce::String (juce::roundToInt ((double) key["confidence"] * 100.0)) + "% sure)";
+    juce::StringArray names;
+    if (auto* arr = v["chords"].getArray())
+        for (auto& c : *arr) { auto n = c["chord"].toString(); if (names.isEmpty() || names[names.size() - 1] != n) names.add (n); }
+    chordsText = names.joinIntoString (" ");
+    return true;
+}
+
 bool EngineClient::importVoice (const juce::String& name, const juce::String& rights, bool confirmed,
                                 const juce::MemoryBlock& wav, juce::String& err) const
 {

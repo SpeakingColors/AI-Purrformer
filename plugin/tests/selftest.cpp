@@ -1,7 +1,8 @@
 // Headless end to end check: MIDI capture, engine round trip, host-synced playback.
 // Run with the engine up:  uvicorn purrformer.server:app --port 8765   (from engine/)
-#include "../src/PluginProcessor.h"
+#include "../src/FxProcessor.h"
 #include <cstdio>
+#include <cstdlib>
 
 using namespace purr;
 
@@ -77,6 +78,76 @@ int main()
     // 6. bad input is reported, not crashed
     PurrProcessor empty; juce::String e2;
     CHECK (! empty.renderBlocking (e2) && e2.isNotEmpty(), "render without a melody gives a clear message");
+
+
+    // 7. FX version: record what comes in while the host plays, render, play back in time
+    {
+        const auto tmp = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("purr-selftest-data");
+        tmp.createDirectory();
+#ifdef _WIN32
+        _putenv_s ("XDG_DATA_HOME", tmp.getFullPathName().toRawUTF8());
+#else
+        setenv ("XDG_DATA_HOME", tmp.getFullPathName().toRawUTF8(), 1);
+#endif
+        FxProcessor fx;
+        FakeHost h2;
+        fx.setPlayHead (&h2);
+        fx.setRateAndBufferSizeDetails (44100.0, 512);
+        fx.prepareToPlay (44100.0, 512);
+        fx.refreshHealth(); fx.refreshVoices();
+
+        juce::AudioBuffer<float> io (2, 512);
+        double phase = 0.0;
+        auto blockIn = [&] (double ppq, bool playing, juce::MidiBuffer& m) {
+            h2.ppq = ppq; h2.playing = playing;
+            for (int i = 0; i < 512; ++i)
+            {
+                const float s = 0.3f * (float) std::sin (phase); phase += 2.0 * 3.14159265358979 * 220.0 / 44100.0;
+                io.setSample (0, i, s); io.setSample (1, i, s);
+            }
+            fx.processBlock (io, m);
+        };
+        const double step = 512 * 120.0 / 60.0 / 44100.0;
+
+        juce::MidiBuffer none;
+        blockIn (0.0, true, none);
+        CHECK (peak (io) > 0.25f && peak (io) < 0.35f, "FX passes the input through when nothing is rendered");
+
+        fx.armRecord();
+        CHECK (fx.recState() == FxProcessor::Armed, "record is armed and waits for the host");
+        blockIn (0.0, false, none);
+        CHECK (fx.recState() == FxProcessor::Armed, "armed record ignores a stopped host");
+        double ppq = 8.0;
+        juce::MidiBuffer withNote; withNote.addEvent (juce::MidiMessage::noteOn (1, 69, (juce::uint8) 100), 0);
+        blockIn (ppq, true, withNote); ppq += step;
+        CHECK (fx.recState() == FxProcessor::Recording, "record starts when the host plays");
+        for (int i = 0; i < 120; ++i) { blockIn (ppq, true, none); ppq += step; }
+        juce::MidiBuffer off; off.addEvent (juce::MidiMessage::noteOff (1, 69), 0);
+        blockIn (ppq, true, off); ppq += step;
+        blockIn (ppq, false, none);                      // host stops
+        CHECK (fx.recState() == FxProcessor::Done, "record stops when the host stops");
+        fx.poll();
+        CHECK (fx.recordedSeconds() > 1.3 && fx.recordedSeconds() < 1.5, "about 1.4 seconds were recorded");
+        CHECK (fx.getNotes().size() == 1 && fx.getNotes()[0].pitch == 69, "MIDI note was captured during the recording");
+
+        juce::String e3;
+        CHECK (fx.renderBlockingFx (e3), ("FX render round trip: " + e3).toRawUTF8());
+        CHECK (fx.resultFile().existsAsFile() && fx.resultFile().getSize() > 10000, "result .wav was saved for drag and drop");
+        auto rr = fx.getRendered();
+        CHECK (rr != nullptr && std::abs (rr->originBeats - 8.0) < 1e-9, "result is anchored where the recording started");
+
+        auto playFx = [&] (double p, bool pl) { juce::MidiBuffer m; h2.ppq = p; h2.playing = pl; io.clear(); fx.processBlock (io, m); return peak (io); };
+        CHECK (playFx (8.3, true) > 0.01f, "FX plays the result in time with the host");
+        CHECK (playFx (1.0, true) == 0.0f, "FX is silent (original voice off) before the recording");
+
+        // a loop jump ends the recording (the user recorded one pass)
+        fx.armRecord();
+        blockIn (16.0, true, none); blockIn (16.0 + step, true, none);
+        blockIn (4.0, true, none);
+        CHECK (fx.recState() == FxProcessor::Done, "a loop jump closes the recording");
+        fx.discardRecording();
+        CHECK (fx.recState() == FxProcessor::Idle, "discard resets the recorder");
+    }
 
     std::printf (failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
     return failures ? 1 : 0;
