@@ -69,8 +69,8 @@ def default_root() -> Path:
     env = os.environ.get("PURRFORMER_VOICES")
     if env:
         return Path(env)
-    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base) / "purrformer" / "voices"
+    from .models import data_root
+    return data_root() / "voices"
 
 
 def slugify(name: str) -> str:

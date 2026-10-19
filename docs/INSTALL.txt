@@ -31,6 +31,7 @@ IT DOES NOT WORK? CHECK
 - Still stuck: open an issue on the project page (github.com/SpeakingColors/AI-Purrformer).
 
 UNINSTALL
-Windows: Settings, Apps, AI Purrformer, Uninstall. Your own voices are kept
-(folder: %USERPROFILE%\.local\share\purrformer\voices) so delete that by hand if you want.
+Windows: Settings, Apps, AI Purrformer, Uninstall. It removes everything it
+installed and asks if you also want to delete your own voices (default: keep).
+The voices live in %APPDATA%\Studio 87\AI Purrformer\voices.
 Linux: delete ~/.vst3/"AI Purrformer.vst3" and the unzipped folder.

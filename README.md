@@ -2,7 +2,7 @@
 
 <img src="assets/icon.svg" width="96" align="right" alt="icon">
 
-Free, open source AI singing voice tool for Linux. Part of the cat plugin suite by SpeakingColors.
+Free, open source AI singing voice tool for Linux. Part of the cat plugin suite by Studio 87.
 
 **Goal:** sing badly, get a much better voice back: on time, on key, in tune with the song. Bonus: a lyric notepad and helper.
 

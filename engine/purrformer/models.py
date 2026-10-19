@@ -7,6 +7,7 @@ The download below is only a repair button for when the weights file is missing.
 Lookup order for both: PURRFORMER_SOULX_DIR, the bundled folders, then the user models folder.
 """
 import os
+import sys
 import threading
 import urllib.request
 from pathlib import Path
@@ -25,12 +26,23 @@ def setup_env() -> None:
         os.environ.setdefault("NLTK_DATA", str(d))
 
 
+def data_root() -> Path:
+    """User data folder: <app data>/Studio 87/AI Purrformer (Windows %APPDATA%, macOS Application
+    Support, Linux XDG data home)."""
+    if os.name == "nt":
+        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "darwin":
+        base = str(Path.home() / "Library" / "Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "Studio 87" / "AI Purrformer"
+
+
 def models_dir() -> Path:
     env = os.environ.get("PURRFORMER_MODELS")
     if env:
         return Path(env)
-    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base) / "purrformer" / "models"
+    return data_root() / "models"
 
 
 def code_dir() -> Optional[Path]:

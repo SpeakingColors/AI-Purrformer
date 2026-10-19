@@ -15,7 +15,7 @@ endif()
 set(PURR_SOURCES src/PluginProcessor.cpp src/PluginEditor.cpp src/EngineClient.cpp)
 
 juce_add_plugin(AIPurrformer
-  COMPANY_NAME "SpeakingColors"
+  COMPANY_NAME "Studio 87"
   PRODUCT_NAME "AI Purrformer"
   PLUGIN_MANUFACTURER_CODE Spkc
   PLUGIN_CODE Purr
