@@ -298,7 +298,7 @@ struct Chips : Live
         auto chips = chipsFor (p.lyrics()); int x = 0, y = 0;
         for (int i = 0; i < juce::jmin (24, chips.size()); ++i)
         {
-            int w = juce::jmax (44, (int) ui (13.0f, true).getStringWidthFloat (chips[i]) + 22);
+            int w = juce::jmax (44, (int) juce::GlyphArrangement::getStringWidth (ui (13.0f, true), chips[i]) + 22);
             if (x + w > getWidth()) { x = 0; y += 38; }
             if (y + 32 > getHeight()) break;
             auto cell = juce::Rectangle<float> ((float) x, (float) y, (float) w, 32.0f);
