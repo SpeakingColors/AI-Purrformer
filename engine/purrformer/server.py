@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 
 from . import backends
 from .analysis import analyze
+from .convert import convert_job, unpack
 from .job import SingJob
 from .midi import parse_midi
 from .models import downloader, setup_env
@@ -61,6 +62,29 @@ async def midi_parse(request: Request):
     except Exception as exc:  # mido raises several error types on bad files
         raise HTTPException(status_code=400, detail=f"not a valid MIDI file: {exc}")
     return {"tempo_bpm": parsed.tempo_bpm, "notes": [n.model_dump() for n in parsed.notes]}
+
+
+@app.post("/convert")
+async def convert_audio(request: Request):
+    """Body: 4-byte JSON length + ConvertJob JSON + recording WAV (+ optional context WAV).
+    Returns the converted voice as a WAV."""
+    from .voicepack import read_wav
+    try:
+        job, rec, ctx = unpack(await request.body())
+        audio, sr = read_wav(rec)
+        context = read_wav(ctx) if ctx else None
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"bad convert request: {exc}")
+    backend = backends.get(job.backend)
+    if backend is None:
+        raise HTTPException(status_code=400, detail=f"unknown backend '{job.backend}'")
+    if not backend.available():
+        raise HTTPException(status_code=503, detail=f"backend '{job.backend}' is not available")
+    try:
+        out = convert_job(job, audio, sr, backend, bank, context)
+    except (VoiceError, NotImplementedError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return Response(content=to_wav_bytes(out, job.sample_rate), media_type="audio/wav")
 
 
 @app.post("/analyze")

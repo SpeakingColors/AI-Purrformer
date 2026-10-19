@@ -56,3 +56,14 @@ class ToneBackend(Backend):
                 seg[-f:] *= ramp[::-1]
             out[a:b] += seg
         return np.clip(out, -1.0, 1.0)
+
+    def convert(self, audio: np.ndarray, sr: int, f0_hz: np.ndarray, voice: Optional[Voice] = None) -> np.ndarray:
+        """Test version: plays the pitch curve as a tone that follows the loudness of the recording."""
+        hop = 480
+        n = len(audio)
+        frames = len(f0_hz)
+        f_samples = np.interp(np.arange(n), np.arange(frames) * hop, f0_hz)
+        voiced = np.interp(np.arange(n), np.arange(frames) * hop, (f0_hz > 0).astype(float))
+        env = np.sqrt(np.convolve(audio ** 2, np.ones(hop) / hop, mode="same"))
+        phase = np.cumsum(2 * np.pi * f_samples / sr)
+        return 0.8 * np.sin(phase) * voiced * np.minimum(env / (env.max() + 1e-9) * 2, 1.0)

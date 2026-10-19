@@ -108,3 +108,47 @@ class SoulXBackend(Backend):
             out[i:i + n] += a[:n]
         peak = np.max(np.abs(out)) if len(out) else 0
         return out / peak * 0.9 if peak > 1 else out
+
+
+# ------------------------------------------------------------------ audio in (convert)
+def _convert(self, audio: np.ndarray, sr: int, f0_hz: np.ndarray, voice: Optional[Voice] = None) -> np.ndarray:
+    """UNTESTED ON REAL WEIGHTS. Uses SoulX-Singer's SVC model: the recording keeps its words, the
+    prompt clip gives the timbre, `f0_hz` gives the pitch. Needs the SVC weights next to model.pt
+    (`model-svc.pt`, name to be confirmed on the first GPU test) and openai/whisper-base bundled."""
+    if voice is None or voice.kind == "builtin":
+        raise VoiceError("the soulx backend needs a real voice (import a clip in the Voices page)")
+    svc_ckpt = models.svc_weights_path()
+    if svc_ckpt is None or models.code_dir() is None:
+        raise VoiceError("the voice conversion model is not installed (see docs/ENGINES.md)")
+    import torch
+    from soulxsinger.models.soulxsinger_svc import SoulXSingerSVC
+    from soulxsinger.utils.file_utils import load_config
+    from .. import convert as conv
+    code = models.code_dir()
+    if str(code) not in sys.path:
+        sys.path.insert(0, str(code))
+    if getattr(self, "_svc", None) is None:
+        cfg = load_config(str(code / "soulxsinger/config/soulxsinger.yaml"))
+        dev = "cuda" if torch.cuda.is_available() else "cpu"
+        m = SoulXSingerSVC(cfg).to(dev)
+        ck = torch.load(str(svc_ckpt), weights_only=False, map_location="cpu")
+        m.load_state_dict(ck["state_dict"] if "state_dict" in ck else ck, strict=False)
+        self._svc, self._svc_cfg, self._svc_dev = m.eval().to(dev), cfg, dev
+    dev, cfg = self._svc_dev, self._svc_cfg
+    clip = default_root() / voice.id / voice.clips[0]["file"]
+    import soundfile as sf
+    pt, psr = sf.read(str(clip), dtype="float32", always_2d=False)
+    if getattr(pt, "ndim", 1) == 2:
+        pt = pt.mean(axis=1)
+    pt = _resample(pt.astype(np.float64), psr, cfg.audio.sample_rate)
+    from ..pitch import track_f0
+    pt_f0 = track_f0(pt, cfg.audio.sample_rate, hop=cfg.audio.hop_size)
+    t = lambda a: torch.from_numpy(np.asarray(a, dtype=np.float32)).unsqueeze(0).to(dev)
+    with torch.no_grad():
+        gen, _ = self._svc.infer(t(pt), t(_resample(audio, sr, cfg.audio.sample_rate)), t(pt_f0), t(f0_hz),
+                                 auto_shift=True, pitch_shift=0, n_steps=cfg.infer.n_steps, cfg=cfg.infer.cfg,
+                                 use_fp16=os.environ.get("PURRFORMER_FP16") == "1")
+    return _resample(gen.squeeze().float().cpu().numpy(), cfg.audio.sample_rate, sr)
+
+
+SoulXBackend.convert = _convert

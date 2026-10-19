@@ -64,6 +64,17 @@ def weights_path() -> Optional[Path]:
     return None
 
 
+def svc_weights_path() -> Optional[Path]:
+    """Voice-conversion (audio in) weights. File name to be confirmed on the first GPU test."""
+    env = os.environ.get("PURRFORMER_SOULX_DIR")
+    for p in ([Path(env) / "pretrained_models/SoulX-Singer/model-svc.pt"] if env else []) + [
+            ENGINE_DIR / "models" / "SoulX-Singer" / "model-svc.pt",
+            models_dir() / "model-svc.pt"]:
+        if p.is_file():
+            return p
+    return None
+
+
 def is_installed() -> bool:
     return code_dir() is not None and weights_path() is not None
 
