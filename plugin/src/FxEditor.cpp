@@ -1,4 +1,5 @@
 #include "FxEditor.h"
+#include "Mascot.h"
 #include <catui/CatLookAndFeel.h>
 #include <catui/Logo.h>
 #include <catui/RenderGate.h>
@@ -138,6 +139,7 @@ struct DropBox : juce::Component, juce::SettableTooltipClient
     juce::MouseCursor getMouseCursor() override { return ready() ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor; }
 };
 
+bool busy0 (FxProcessor& p) { return p.renderState.load() == 1; }
 juce::String pctText (double v, int) { return juce::String (juce::roundToInt (v * 100.0)) + "%"; }
 double pctValue (const juce::String& t) { return t.getDoubleValue() / 100.0; }
 } // namespace
@@ -162,6 +164,8 @@ struct FxEditor::Content : juce::Component
     std::unique_ptr<juce::FileChooser> chooser;
     int blink = 0;
     bool tips = true;
+    std::unique_ptr<juce::Drawable> mascot;   // the singing cat from the UI mockup
+    float bob = 0.0f;
 
     Content (FxProcessor& p, FxEditor& o) : proc (p), owner (o)
     {
@@ -244,6 +248,7 @@ struct FxEditor::Content : juce::Component
         addAndMakeVisible (inMeter); addAndMakeVisible (scMeter); addAndMakeVisible (drop);
         drop.setTooltip ("Drag this box onto any track in your host to drop the AI voice there.");
 
+        if (auto xml = juce::XmlDocument::parse (mascotSvg)) mascot = juce::Drawable::createFromSVG (*xml);
         gate.onFrame = [this] { frame(); };
         gate.start (30);
         syncVoices();
@@ -288,6 +293,8 @@ struct FxEditor::Content : juce::Component
         drop.refreshPeaks(); drop.tick();
         const auto s = proc.recState();
         ++blink;
+        const bool singing = s == FxProcessor::Recording || busy0 (proc);
+        bob = singing ? bob + 0.35f : 0.0f;
         recBtn.setButtonText (s == FxProcessor::Armed ? "WAITING FOR PLAY... (click to cancel)"
                               : s == FxProcessor::Recording ? "STOP  " + juce::String (proc.recordedSeconds(), 1) + " s"
                               : s == FxProcessor::Done ? "RECORD AGAIN" : "RECORD");
@@ -404,17 +411,32 @@ struct FxEditor::Content : juce::Component
 
     void paint (juce::Graphics& g) override
     {
+        // deep indigo with the purple glow from the mockup
         g.fillAll (bg);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3A1B9A), (float) getWidth() * 0.5f, -40.0f, bg, (float) getWidth() * 0.5f, 300.0f, true));
+        g.fillRect (getLocalBounds());
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0x555B1466), (float) getWidth(), (float) getHeight(), juce::Colour (0x005B1466),
+                                                 (float) getWidth() * 0.55f, (float) getHeight() * 0.7f, true));
+        g.fillRect (getLocalBounds());
         catui::drawWoodCheeks (g, getLocalBounds(), kCheek);
         auto hd = lay.hdr;
-        g.setColour (panelHi); g.fillRect (hd);
-        catui::drawCatHead (g, hd.removeFromLeft (52).reduced (8, 6).toFloat(), pink, bg);
-        label (g, "AI Purrformer", hd.withWidth (170), ink, 20.0f);
-        label (g, "Studio 87", hd.withTrimmedLeft (172).withWidth (80), mute, 12.0f);
-        const bool up = proc.engineUp.load();
-        label (g, up ? "Engine: running" : "Engine NOT running. Start it from the Start menu (AI Purrformer Engine).",
-               hd.withTrimmedLeft (260).withTrimmedRight (80), up ? mint : orange, 12.0f);
-
+        if (mascot != nullptr) mascot->drawWithin (g, hd.removeFromLeft (58).reduced (4, 2).toFloat(), juce::RectanglePlacement::centred, 1.0f);
+        else hd.removeFromLeft (58);
+        g.setGradientFill (juce::ColourGradient (violet, (float) hd.getX(), 0.0f, sun, (float) hd.getX() + 190.0f, 0.0f, false));
+        g.setFont (ui (22.0f, true));
+        g.drawText ("AI Purrformer", hd.withWidth (190), juce::Justification::centredLeft);
+        label (g, "Studio 87", hd.withTrimmedLeft (186).withWidth (80), mute, 12.0f);
+        {
+            const bool up = proc.engineUp.load();
+            const auto c = up ? mint : pink;
+            auto pill = hd.withTrimmedLeft (270).withTrimmedRight (86).withHeight (28).withY (hd.getY() + 9).toFloat();
+            pill = pill.withWidth (juce::jmin (pill.getWidth(), up ? 160.0f : 420.0f));
+            g.setColour (c.withAlpha (0.12f)); g.fillRoundedRectangle (pill, 14.0f);
+            g.setColour (c.withAlpha (0.6f)); g.drawRoundedRectangle (pill, 14.0f, 1.0f);
+            g.setColour (c); g.fillEllipse (pill.getX() + 12, pill.getCentreY() - 4, 8, 8);
+            label (g, up ? "engine connected" : "Engine NOT running. Start it from the Start menu (AI Purrformer Engine).",
+                   pill.toNearestInt().withTrimmedLeft (28), c, 12.0f);
+        }
         card (g, lay.c1, "1", "Record", pink);
         card (g, lay.c2, "2", "Listen to the song", violet);
         card (g, lay.c3, "3", "Pick the voice", teal);
@@ -445,6 +467,14 @@ struct FxEditor::Content : juce::Component
         for (int i = 0; i < 3; ++i) lab ("Voice " + juce::String (i + 1) + " amount", lay.wL[i]);
         lab ("AI voice level", lay.outL); lab ("Original voice", lay.dryL);
         label (g, proc.statusText(), lay.statusR, mute, 12.5f);
+        // the singing cat, bobbing while it records or renders
+        if (mascot != nullptr)
+        {
+            const float dy = bob > 0.0f ? -6.0f * std::abs (std::sin (bob)) : 0.0f;
+            mascot->drawWithin (g, juce::Rectangle<float> ((float) lay.c3.getRight() - 104.0f, (float) lay.c3.getBottom() - 90.0f + dy, 88.0f, 88.0f),
+                                juce::RectanglePlacement::centred, 1.0f);
+        }
+
     }
 
     void resized() override
