@@ -12,6 +12,7 @@
 
 namespace purr::live
 {
+constexpr double kPi = 3.14159265358979323846;
 inline float hzToMidi (float f) { return 69.0f + 12.0f * std::log2 (f / 440.0f); }
 inline float midiToHz (float m) { return 440.0f * std::pow (2.0f, (m - 69.0f) / 12.0f); }
 
@@ -150,8 +151,8 @@ private:
         std::array<double, kTaps> h {};
         for (int i = 0; i < kTaps; ++i)
         {
-            const double t = i - c, sinc = std::abs (t) < 1e-9 ? 2 * fc : std::sin (2 * M_PI * fc * t) / (M_PI * t);
-            h[(size_t) i] = sinc * (0.5 - 0.5 * std::cos (2 * M_PI * i / (kTaps - 1)));
+            const double t = i - c, sinc = std::abs (t) < 1e-9 ? 2 * fc : std::sin (2 * kPi * fc * t) / (kPi * t);
+            h[(size_t) i] = sinc * (0.5 - 0.5 * std::cos (2 * kPi * i / (kTaps - 1)));
             sum += h[(size_t) i];
         }
         for (int i = 0; i < kTaps; ++i) fir[(size_t) i] = (float) (h[(size_t) i] / sum);
