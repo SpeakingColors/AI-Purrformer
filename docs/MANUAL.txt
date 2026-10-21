@@ -21,7 +21,7 @@ AI PURRFORMER (the effect): 5 STEPS
 5. Press RENDER. When done, DRAG the big pink box onto any track in your DAW. A .wav is also
    saved on your computer, and "Save .wav..." saves a copy where you want.
 The result starts where your recording started: drop it at the same bar. You can also press
-play and hear it from the plugin, in time with the DAW. It is not live: it records, then renders.
+play and hear it from the plugin, in time with the DAW. The AI voice is not live: it records, then renders (Live mode is the real time pitch fix).
 Pictures: see docs/USE-IN-YOUR-DAW.md in the repository.
 
 AI PURRFORMER SING (the instrument): THE IDEA
@@ -47,6 +47,11 @@ SING
   Blend: "Layer (choir)" sings with each voice and mixes them (works with any voice).
          "One new voice (test)" blends the voices into one new voice (experimental).
   Piano roll and waveform show your notes and the rendered audio.
+LIVE (top card of AI Purrformer)
+  LIVE switch: fixes your singing in real time on the track. Snap to key, Retune speed (left = instant
+  robot, right = slow and natural), Voice level, Original (your untouched mic). It shows the note you sing
+  and where it lands. It is a pitch fix of your own voice, not the AI voice. Reported delay is about 13 ms.
+  The AI voice is the Studio render (cards 1 to 5).
 VOICE FX
   Robot (autotune effect): Retune speed (left = natural glide, right = instant hard robot),
     Dry/wet (left = clean voice, right = all robot).

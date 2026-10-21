@@ -4,6 +4,7 @@
 // back in time with the host and can be dragged out as a .wav onto any track.
 #pragma once
 #include "PluginProcessor.h"
+#include "LiveFx.h"
 
 namespace purr
 {
@@ -33,6 +34,8 @@ public:
     double recordedSeconds() const { return recLen.load() / juce::jmax (1.0, hostSr); }
     float takeInputPeak() { return inPeak.exchange (0.0f); }
     bool hasSidechain() const { return sidechainOn.load(); }
+    live::Info& liveInfo() { return liveVoice.info; }
+    int liveLatencySamples() const { return liveVoice.latencySamples(); }
     float takeSidechainPeak() { return scPeak.exchange (0.0f); }
     bool hasRecording() const { return recState() == Done && recLen.load() > 0; }
 
@@ -53,6 +56,8 @@ private:
     juce::File saveResult (const juce::MemoryBlock& wav);
 
     std::atomic<int> editorW { 0 };
+    live::Voice liveVoice;
+    int heldNote = -1;                         // MIDI note held right now (audio thread)
     static constexpr int maxSeconds = 300;
     juce::AudioBuffer<float> rec, side;        // mono, allocated in prepareToPlay
     std::atomic<int> recStateA { Idle };

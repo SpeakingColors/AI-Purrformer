@@ -95,6 +95,7 @@ int main()
         fx.setRateAndBufferSizeDetails (44100.0, 512);
         fx.prepareToPlay (44100.0, 512);
         fx.refreshHealth(); fx.refreshVoices();
+        fx.apvts.getParameter ("live_on")->setValueNotifyingHost (0.0f);    // studio render tests run with live off
 
         juce::AudioBuffer<float> io (2, 512);
         double phase = 0.0;
@@ -110,7 +111,7 @@ int main()
         const double step = 512 * 120.0 / 60.0 / 44100.0;
 
         juce::MidiBuffer none;
-        blockIn (0.0, true, none);
+        for (int k = 0; k < 4; ++k) blockIn (0.0, true, none);   // dry path is delayed by the reported latency
         CHECK (peak (io) > 0.25f && peak (io) < 0.35f, "FX passes the input through when nothing is rendered");
 
         fx.armRecord();
@@ -165,6 +166,45 @@ int main()
         CHECK (fx2.editorWidth() == 1290, "FX state remembers the window size");
         fx.discardRecording();
         CHECK (fx.recState() == FxProcessor::Idle, "discard resets the recorder");
+    }
+
+
+    // live pitch fix: a flat sung note lands on the key, MIDI can pick the note, latency is reported
+    {
+        FxProcessor lv;
+        FakeHost h3;
+        lv.setPlayHead (&h3);
+        lv.setRateAndBufferSizeDetails (44100.0, 512);
+        lv.prepareToPlay (44100.0, 512);
+        auto setL = [&] (const char* id, float v) { lv.apvts.getParameter (id)->setValueNotifyingHost (lv.apvts.getParameter (id)->convertTo0to1 (v)); };
+        setL ("key", 1); setL ("tonic", 0); setL ("scale", 0);               // Manual, C major
+        setL ("live_snap", 1.0f); setL ("live_speed", 0.0f);
+        CHECK (lv.getLatencySamples() > 0 && lv.getLatencySamples() < 4410, "live mode reports a small latency");
+
+        auto freqOf = [] (const std::vector<float>& x) {                      // autocorrelation estimate
+            int best = 0; double bv = -1e30;
+            for (int lag = 60; lag < 800; ++lag)
+            {
+                double c = 0; for (size_t i = 0; i + lag < x.size(); ++i) c += (double) x[i] * x[i + lag];
+                if (c > bv) { bv = c; best = lag; }
+            }
+            return 44100.0 / best; };
+        auto runLive = [&] (double inHz, int note) {
+            juce::AudioBuffer<float> b (2, 512); std::vector<float> out; double ph = 0.0;
+            for (int blk = 0; blk < 120; ++blk)
+            {
+                for (int i = 0; i < 512; ++i) { const float v = 0.4f * (float) std::sin (ph); ph += 2.0 * 3.14159265358979 * inHz / 44100.0; b.setSample (0, i, v); b.setSample (1, i, v); }
+                juce::MidiBuffer m;
+                if (blk == 0 && note > 0) m.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
+                lv.processBlock (b, m);
+                if (blk >= 60) for (int i = 0; i < 512; ++i) out.push_back (b.getSample (0, i));
+            }
+            return freqOf (out); };
+        const double f1 = runLive (212.0, 0);                                 // flat A3 (220 Hz) in C major
+        CHECK (std::abs (f1 - 220.0) < 5.0, "live: a flat note is pulled onto the key");
+        setL ("midi_follow", 1.0f);
+        const double f2 = runLive (212.0, 67);                                // MIDI says G3 (196 Hz)
+        CHECK (std::abs (f2 - 196.0) < 5.0, "live: MIDI note picks the target pitch");
     }
 
     std::printf (failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);

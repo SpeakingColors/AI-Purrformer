@@ -13,7 +13,7 @@ public:
     void resized() override;
     void refreshForScreenshot();               // draws a frame even when the window is not on screen
 
-    static constexpr int baseW = 860, baseH = 810;
+    static constexpr int baseW = 860, baseH = 950;
 
 private:
     struct Content;

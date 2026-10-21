@@ -28,6 +28,8 @@ void FxProcessor::prepareToPlay (double sr, int blockSize)
     const int cap = (int) (sr * maxSeconds);
     if (rec.getNumSamples() != cap) rec.setSize (1, cap);
     if (side.getNumSamples() != cap) side.setSize (1, cap);
+    liveVoice.prepare (sr, 2);
+    setLatencySamples (liveVoice.latencySamples());
     sidechainOn = getBusCount (true) > 1 && getBus (true, 1) != nullptr && getBus (true, 1)->isEnabled();
 }
 
@@ -111,14 +113,46 @@ void FxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
         }
     }
 
-    // output: the result in time with the host; the original voice only as loud as the user wants
+    // MIDI held right now (the live pitch fix follows it)
+    for (const auto meta : midi)
+    {
+        const auto m = meta.getMessage();
+        if (m.isNoteOn()) heldNote = m.getNoteNumber();
+        else if ((m.isNoteOff() || m.isAllNotesOff()) && (m.isAllNotesOff() || m.getNoteNumber() == heldNote)) heldNote = -1;
+    }
+
+    // output: the live voice (or the original, delayed the same so timing never changes), then the rendered result
     const bool recording = recStateA.load() == Recording || recStateA.load() == Armed;
     std::shared_ptr<const Rendered> r = getRendered();
-    float inGain = 1.0f;
-    if (recording) inGain = apvts.getRawParameterValue ("monitor")->load() > 0.5f ? 1.0f : 0.0f;
-    else if (r != nullptr) inGain = apvts.getRawParameterValue ("dry")->load();
-    if (inGain != 1.0f) mainIn.applyGain (inGain);
-    if (! recording) playRendered (mainIn, t, apvts.getRawParameterValue ("out_gain")->load(), false);
+    auto P = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    live::Settings ls;
+    ls.on = P ("live_on") > 0.5f;
+    float origGain = 1.0f;
+    if (recording) origGain = P ("monitor") > 0.5f ? 1.0f : 0.0f;
+    else if (r != nullptr) origGain = P ("dry");
+    if (ls.on)
+    {
+        ls.snap = P ("live_snap"); ls.speed = P ("live_speed"); ls.level = P ("live_level"); ls.dry = P ("live_dry");
+        const int keyMode = (int) P ("key");                                  // 0 Auto, 1 Manual, 2 Off
+        ls.autoKey = keyMode == 0;
+        ls.mask = keyMode == 1 ? live::scaleMask ((int) P ("tonic"), (int) P ("scale")) : 0;
+        ls.heldNote = heldNote; ls.follow = P ("midi_follow");
+        ls.gritOn = P ("grit_on") > 0.5f; ls.drive = P ("grit_drive"); ls.trans = P ("grit_trans"); ls.fuzz = P ("grit_fuzz");
+        ls.gritMix = P ("grit_mix"); ls.gritPos = (int) P ("grit_pos");
+    }
+    else { ls.level = 0.0f; ls.dry = origGain; ls.snap = 0.0f; }
+    if (inCh > 0)
+    {
+        float* chans[2] = { mainIn.getWritePointer (0), inCh > 1 ? mainIn.getWritePointer (1) : mainIn.getWritePointer (0) };
+        liveVoice.process (chans, juce::jmin (inCh, 2), n, ls);
+        if (inCh == 1 && buffer.getNumChannels() > 1) buffer.copyFrom (1, 0, buffer, 0, 0, n);   // mono in, stereo out
+    }
+    if (! recording)
+    {
+        auto tl = t;                                           // the host delays other tracks by our latency, so place the result later
+        if (tl.bpm > 0.0) tl.ppq -= liveVoice.latencySamples() / hostSr * tl.bpm / 60.0;
+        playRendered (mainIn, tl, P ("out_gain"), false);
+    }
     midi.clear();
 }
 

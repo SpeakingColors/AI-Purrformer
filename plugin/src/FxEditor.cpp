@@ -154,11 +154,11 @@ struct FxEditor::Content : juce::Component
                      tipsBtn { "Tips" };
     Meter inMeter { "Input (your voice)" }, scMeter { "Sidechain (the song)" };
     juce::ComboBox keyBox, tonicBox, scaleBox, gritPos, voiceBox[3];
-    juce::ToggleButton gritOn { "On" };
-    juce::Slider snap, follow, w[3], outLevel, dry, gDrive, gTrans, gFuzz, gMix;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aSnap, aFollow, aW[3], aOut, aDry, aGd, aGt, aGf, aGm;
+    juce::ToggleButton gritOn { "On" }, liveOn { "LIVE" };
+    juce::Slider lSnap, lSpeed, lLevel, lDry, snap, follow, w[3], outLevel, dry, gDrive, gTrans, gFuzz, gMix;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aLSnap, aLSpeed, aLLevel, aLDry, aSnap, aFollow, aW[3], aOut, aDry, aGd, aGt, aGf, aGm;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> aKey, aTonic, aScale, aGpos;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> aGon;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> aGon, aLon;
     DropBox drop { proc };
     std::vector<VoiceInfo> shownVoices;
     std::unique_ptr<juce::FileChooser> chooser;
@@ -178,6 +178,10 @@ struct FxEditor::Content : juce::Component
             s.setTooltip (tip);
             addAndMakeVisible (s);
         };
+        setup (lSnap, violet, "How strongly your singing is pulled onto the notes of the key. 0% = as sung.");
+        setup (lSpeed, mint, "How fast the correction acts. Left = instant and robotic, right = slow and natural.");
+        setup (lLevel, sun, "Volume of the corrected voice.");
+        setup (lDry, sky, "How much of your uncorrected mic you hear next to the fixed voice. Leave at 0% for the clean fix.");
         setup (snap, violet, "How strongly the voice is pulled onto the notes of the song's key. 0% keeps it as sung.");
         setup (follow, mint, "When MIDI is sent in, how closely the voice follows those notes. 100% = exactly the MIDI.");
         setup (outLevel, sun, "Volume of the new AI voice.");
@@ -207,7 +211,7 @@ struct FxEditor::Content : juce::Component
                 if (idx >= 0 && idx < (int) shownVoices.size()) proc.setVoiceId (i, shownVoices[(size_t) idx].id);
             };
         }
-        for (auto* s : { &snap, &follow, &outLevel, &dry, &w[0], &w[1], &w[2], &gDrive, &gTrans, &gFuzz, &gMix })
+        for (auto* s : { &lSnap, &lSpeed, &lLevel, &lDry, &snap, &follow, &outLevel, &dry, &w[0], &w[1], &w[2], &gDrive, &gTrans, &gFuzz, &gMix })
         {
             s->textFromValueFunction = [] (double v) { return pctText (v, 0); };
             s->valueFromTextFunction = [] (const juce::String& t) { return pctValue (t); };
@@ -227,6 +231,19 @@ struct FxEditor::Content : juce::Component
         aKey = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "key", keyBox);
         aTonic = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "tonic", tonicBox);
         aScale = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "scale", scaleBox);
+        aLSnap = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "live_snap", lSnap);
+        aLSpeed = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "live_speed", lSpeed);
+        aLLevel = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "live_level", lLevel);
+        aLDry = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "live_dry", lDry);
+        aLon = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "live_on", liveOn);
+        for (auto* s : { &lSnap, &lSpeed, &lLevel, &lDry })
+        {
+            s->textFromValueFunction = [] (double v) { return pctText (v, 0); };
+            s->valueFromTextFunction = [] (const juce::String& t) { return pctValue (t); };
+            s->updateText();
+        }
+        liveOn.setTooltip ("Live: the plugin fixes your singing in real time, right on the track. Use it on a track with your mic input.");
+        addAndMakeVisible (liveOn);
         aGpos = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "grit_pos", gritPos);
         aGon = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "grit_on", gritOn);
 
@@ -310,6 +327,8 @@ struct FxEditor::Content : juce::Component
         saveBtn.setEnabled (drop.ready());
         { const bool man = proc.apvts.getParameter ("key")->getCurrentValueAsText() == "Manual";
           tonicBox.setEnabled (man); scaleBox.setEnabled (man);
+          const bool lv = liveOn.getToggleState();
+          for (auto* c : { &lSnap, &lSpeed, &lLevel, &lDry }) c->setEnabled (lv);
           const bool go = gritOn.getToggleState();
           for (auto* c : { &gDrive, &gTrans, &gFuzz, &gMix }) c->setEnabled (go);
           gritPos.setEnabled (go); }
@@ -333,7 +352,8 @@ struct FxEditor::Content : juce::Component
     // one place decides where everything sits; paint and resized both read it
     struct L
     {
-        juce::Rectangle<int> hdr, c1, c2, c3, c4, c5;
+        juce::Rectangle<int> hdr, c0, c1, c2, c3, c4, c5;
+        juce::Rectangle<int> lOn, lRead, lSl[4], lLab[4];
         juce::Rectangle<int> gOn, gPos, gSl[4], gLab[4];
         juce::Rectangle<int> tonicR, scaleR;
         juce::Rectangle<int> recRow, discardR, inM, scM, note1, note2;
@@ -349,6 +369,8 @@ struct FxEditor::Content : juce::Component
         const int m = 12;
         auto body = r.reduced (m, 0);
         body.removeFromTop (10);
+        lay.c0 = body.removeFromTop (128);
+        body.removeFromTop (m);
         auto top = body.removeFromTop (380);
         body.removeFromTop (m);
         lay.c5 = body.removeFromTop (112);
@@ -361,6 +383,14 @@ struct FxEditor::Content : juce::Component
         left.removeFromTop (m);
         lay.c2 = left;
 
+        {
+            auto in0 = lay.c0.reduced (14, 8); in0.removeFromTop (28);
+            auto r1 = in0.removeFromTop (44);
+            lay.lOn = r1.removeFromLeft (120).reduced (0, 4); r1.removeFromLeft (12); lay.lRead = r1;
+            in0.removeFromTop (6);
+            auto r2 = in0.removeFromTop (28); const int cw = r2.getWidth() / 4;
+            for (int i = 0; i < 4; ++i) { auto col = r2.removeFromLeft (cw); lay.lLab[i] = col.removeFromLeft (78); lay.lSl[i] = col.reduced (2, 0); }
+        }
         auto in1 = lay.c1.reduced (14, 8); in1.removeFromTop (28);
         auto row = in1.removeFromTop (38);
         lay.discardR = row.removeFromRight (84).reduced (0, 2); row.removeFromRight (6);
@@ -437,11 +467,12 @@ struct FxEditor::Content : juce::Component
             label (g, up ? "engine connected" : "Engine NOT running. Start it from the Start menu (AI Purrformer Engine).",
                    pill.toNearestInt().withTrimmedLeft (28), c, 12.0f);
         }
-        card (g, lay.c1, "1", "Record", pink);
-        card (g, lay.c2, "2", "Listen to the song", violet);
-        card (g, lay.c3, "3", "Pick the voice", teal);
+        card (g, lay.c0, "L", "Live pitch fix: sing into the track, hear it in tune", mint);
+        card (g, lay.c1, "1", "Studio render (extra): Record", pink);
+        card (g, lay.c2, "2", "Key and the song", violet);
+        card (g, lay.c3, "3", "Studio render: pick the AI voice", teal);
         card (g, lay.c5, "4", "Grit (optional): Drive, Transistor, Fuzz", orange);
-        card (g, lay.c4, "5", "Render, then drag the result out", sun);
+        card (g, lay.c4, "5", "Studio render: render, then drag out", sun);
 
         g.setFont (ui (11.5f)); g.setColour (mute);
         g.drawText (proc.hasSidechain() ? "Sidechain connected: the plugin hears the song."
@@ -461,6 +492,24 @@ struct FxEditor::Content : juce::Component
         g.setColour (mint); g.setFont (ui (11.5f));
         g.drawText (proc.chordsText().isNotEmpty() ? "Chords: " + proc.chordsText() : "", ki, juce::Justification::centredLeft);
 
+        {   // live readout: what you sing, where it lands
+            const auto sung = proc.liveInfo().sung.load(), tgt = proc.liveInfo().target.load();
+            static const char* nn[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+            auto nm = [] (float m) { const int n = juce::roundToInt (m); return juce::String (nn[((n % 12) + 12) % 12]) + juce::String (n / 12 - 1); };
+            juce::String t;
+            if (! liveOn.getToggleState()) t = "Live is off. Studio render below still works.";
+            else if (sung < 0.0f) t = "Sing or play something... (the key is learned as you sing)";
+            else
+            {
+                const float cents = (sung - juce::roundToInt (sung)) * 100.0f;
+                t = "You sing " + nm (sung) + " (" + juce::String (juce::roundToInt (cents)) + " cents)   >   voice " + (tgt >= 0.0f ? nm (tgt) : juce::String ("-"));
+            }
+            const int kt = proc.liveInfo().keyTonic.load();
+            if (liveOn.getToggleState() && kt >= 0) t += "     Key: " + juce::String (nn[kt % 12]) + (proc.liveInfo().keyMinor.load() ? " minor" : " major");
+            label (g, t, lay.lRead, ink, 14.0f);
+            const char* ll[4] = { "Snap to key", "Retune speed", "Voice level", "Original" };
+            for (int i = 0; i < 4; ++i) label (g, ll[i], lay.lLab[i], mute, 12.0f);
+        }
         auto lab = [&] (const juce::String& t, juce::Rectangle<int> r) { label (g, t, r, mute, 12.0f); };
         { const char* gl[4] = { "Drive", "Transistor", "Fuzz", "Mix" }; for (int i = 0; i < 4; ++i) lab (gl[i], lay.gLab[i]); }
         lab ("Key", lay.keyL); lab ("Snap to key", lay.snapL); lab ("Follow MIDI", lay.folL);
@@ -481,6 +530,8 @@ struct FxEditor::Content : juce::Component
     {
         computeLayout();
         { auto hb = lay.hdr; tipsBtn.setBounds (hb.removeFromRight (70).reduced (6, 9)); }
+        liveOn.setBounds (lay.lOn);
+        lSnap.setBounds (lay.lSl[0]); lSpeed.setBounds (lay.lSl[1]); lLevel.setBounds (lay.lSl[2]); lDry.setBounds (lay.lSl[3]);
         recBtn.setBounds (lay.recRow); discardBtn.setBounds (lay.discardR);
         inMeter.setBounds (lay.inM); scMeter.setBounds (lay.scM);
         keyBox.setBounds (lay.keyR); tonicBox.setBounds (lay.tonicR); scaleBox.setBounds (lay.scaleR);

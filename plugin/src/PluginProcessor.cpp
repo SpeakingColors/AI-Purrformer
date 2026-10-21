@@ -41,6 +41,10 @@ Layout PurrProcessor::makeLayout()
     // grit (Drive, Transistor, Fuzz from PurrOne), see engine/purrformer/grit.py
     bl ("grit_on", "Grit on", false);
     flt ("grit_drive", "Drive", 0.0f); flt ("grit_trans", "Transistor", 0.0f); flt ("grit_fuzz", "Fuzz", 0.0f); flt ("grit_mix", "Grit mix", 0.5f);
+    // live pitch fix (the main function of the FX plugin)
+    bl ("live_on", "Live pitch fix", true);
+    flt ("live_snap", "Live snap to key", 0.8f); flt ("live_speed", "Retune speed", 0.2f);
+    flt ("live_level", "Live voice level", 1.0f); flt ("live_dry", "Live original voice", 0.0f);
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "grit_pos", 1 }, "Grit position",
            juce::StringArray { "Before the voice", "Between (each voice)", "After the voice", "Before + after", "All three" }, 2));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "mode", 1 }, "Mode", juce::StringArray { "melody_leads", "voice_leads" }, 0));

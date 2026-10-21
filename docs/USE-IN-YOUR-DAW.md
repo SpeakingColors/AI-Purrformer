@@ -11,7 +11,20 @@ There are two plugins in one install:
 
 Everything runs on your computer. No account, no cloud.
 
-## The 5 steps
+## Live mode (the main thing)
+
+Put the plugin on a track with your mic. Leave **LIVE** on. You sing, and you hear your voice pulled onto the key as you sing. Nothing to record.
+
+- **Snap to key**: how hard notes are pulled onto the scale. **Retune speed**: left is instant and robotic, right is slow and natural.
+- The key is learned from what you sing. You can set it yourself (*Key: Manual*, note, scale) in card 2.
+- Send MIDI to the plugin and the voice sings those notes instead (**Follow MIDI**).
+- **Grit** works live too. **Original** lets you hear your untouched mic next to the fixed voice.
+- Live mode fixes the pitch of your own voice. It is not the AI voice. The AI voice is the studio render below.
+- Latency: the plugin reports a small delay (about 13 ms) to the DAW, which lines everything up. Keep your audio buffer small (128 or 256) and monitor through the DAW, not through your interface's direct monitoring, or you will hear your untouched voice too.
+
+## Studio render (extra): the 5 steps
+
+Live mode is on by default. The steps below make the AI voice from a recording.
 
 **1. Put it on your vocal track.** Add *AI Purrformer* as an effect on the track where you sing (or where your acapella lives). Start the engine first (Start menu: AI Purrformer Engine). The plugin header says *Engine: running*.
 
@@ -37,7 +50,7 @@ The result starts where your recording started. Drop it at the same bar and it l
 
 ## Good to know
 
-- Not live. It records, then renders. A long clip takes a while on a slow computer.
+- The AI voice is not live. It records, then renders. A long clip takes a while on a slow computer. Live mode (pitch fix) is real time.
 - The original voice is silent after rendering (you only hear the AI voice). Raise **Original voice** to hear both.
 - **Hear input while recording** is on by default so you hear yourself.
 - Sidechain and MIDI into an *effect* plugin depend on the DAW. If your DAW cannot send MIDI to effects, use the sidechain, or use **AI Purrformer Sing** for MIDI and lyrics. Notes on each DAW will be added here as we test them.
