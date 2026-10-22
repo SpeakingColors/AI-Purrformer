@@ -8,6 +8,8 @@ Free, open source AI singing voice tool for Linux. Part of the cat plugin suite 
 
 **Status:** early build (v0.1). The pipeline works end to end with a test voice; the real AI voice is not tested yet. See [Use it in your DAW](docs/USE-IN-YOUR-DAW.md).
 
+<p align="center"><img src="docs/screenshot.png" alt="AI Purrformer editor" width="900"></p>
+
 ## How it works
 
 **Live:** put it on your mic track and it pulls your singing onto the key in real time. **Studio render (extra):** record a take and re-sing it in an AI voice. The plugin (an effect with audio in, a sidechain and MIDI in) listens while your DAW plays, finds the key of the song, and re-sings your take in an AI voice, on key and on time. Then you **drag the result onto any track**.
