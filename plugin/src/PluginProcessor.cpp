@@ -45,6 +45,7 @@ Layout PurrProcessor::makeLayout()
     bl ("live_on", "Live pitch fix", true);
     flt ("live_snap", "Live snap to key", 0.8f); flt ("live_speed", "Retune speed", 0.2f);
     flt ("live_level", "Live voice level", 1.0f); flt ("live_dry", "Live original voice", 0.0f);
+    l.add (std::make_unique<juce::AudioParameterFloat> (P { "live_formant", 1 }, "Live formant shift (semitones)", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "grit_pos", 1 }, "Grit position",
            juce::StringArray { "Before the voice", "Between (each voice)", "After the voice", "Before + after", "All three" }, 2));
     l.add (std::make_unique<juce::AudioParameterChoice> (P { "mode", 1 }, "Mode", juce::StringArray { "melody_leads", "voice_leads" }, 0));

@@ -132,7 +132,7 @@ void FxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuff
     else if (r != nullptr) origGain = P ("dry");
     if (ls.on)
     {
-        ls.snap = P ("live_snap"); ls.speed = P ("live_speed"); ls.level = P ("live_level"); ls.dry = P ("live_dry");
+        ls.snap = P ("live_snap"); ls.speed = P ("live_speed"); ls.level = P ("live_level"); ls.dry = P ("live_dry"); ls.formant = P ("live_formant");
         const int keyMode = (int) P ("key");                                  // 0 Auto, 1 Manual, 2 Off
         ls.autoKey = keyMode == 0;
         ls.mask = keyMode == 1 ? live::scaleMask ((int) P ("tonic"), (int) P ("scale")) : 0;

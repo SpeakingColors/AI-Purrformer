@@ -1,6 +1,6 @@
 // Live pitch fix for the AI Purrformer FX plugin. AGPL-3.0.
 // Real time, low delay, no engine needed: it tracks your pitch (YIN), pulls it toward the key or
-// toward the notes of a MIDI track, and shifts the voice with a two tap delay line pitch shifter.
+// toward the notes of a MIDI track, and shifts the voice with a formant-preserving pitch-synchronous overlap-add shifter (PSOLA).
 // Optional grit (Drive, Transistor, Fuzz from the PurrOne synth) before and after.
 // Everything on the audio thread uses buffers made in prepare(); no allocation while processing.
 #pragma once
@@ -169,6 +169,10 @@ private:
 };
 
 // ---- the voice -----------------------------------------------------------------------------------
+// Formant-preserving pitch shifter (pitch-synchronous overlap-add, "PSOLA"): the voice is cut into
+// one-period grains that follow the singer's pitch, and the grains are laid back down closer together
+// or further apart. The shape of the grain (the vowel, the formants) is untouched, so a corrected note
+// still sounds like the same person. Optional Formant knob scales the grain read speed on purpose.
 struct Settings
 {
     bool on = true;
@@ -179,6 +183,7 @@ struct Settings
     int heldNote = -1;          // MIDI note held right now (or -1)
     float follow = 1.0f;        // how closely to follow the held MIDI note
     float level = 1.0f, dry = 0.0f;
+    float formant = 0.0f;       // semitones: shifts the vowel colour (formants) up or down, 0 = keep the singer's own
     bool gritOn = false;
     float drive = 0, trans = 0, fuzz = 0, gritMix = 0.5f;
     int gritPos = 2;            // 0 before, 1 between, 2 after, 3 before+after, 4 all (live has one voice: between = after)
@@ -193,17 +198,19 @@ struct Info                       // read by the editor
 class Voice
 {
 public:
-    static constexpr double grainSeconds = 0.025;
-    int latencySamples() const { return grain / 2 + 2 + 2 * GritStage::kDelay; }
+    static constexpr double latencySeconds = 0.022;
+    int latencySamples() const { return lat + 2 * GritStage::kDelay; }
 
     void prepare (double sr, int channels)
     {
         sampleRate = sr;
         nch = std::clamp (channels, 1, 2);
-        grain = (int) std::lround (sr * grainSeconds);
-        int n = 64; while (n < 2 * grain + 32) n <<= 1;
+        lat = (int) std::lround (sr * latencySeconds);
+        const int need = lat + 6 * (int) (sr / 60.0) + 64;
+        int n = 256; while (n < 2 * need) n <<= 1;
         mask = n - 1;
-        for (auto& c : ch) { c.buf.assign ((size_t) n, 0.0f); c.dry.assign ((size_t) n, 0.0f); c.pre.prepare (sr); c.post.prepare (sr); }
+        for (auto& c : ch) { c.buf.assign ((size_t) n, 0.0f); c.acc.assign ((size_t) n, 0.0f); c.dry.assign ((size_t) n, 0.0f); c.pre.prepare (sr); c.post.prepare (sr); }
+        mbuf.assign ((size_t) n, 0.0f);
         dec = std::max (1, (int) std::floor (sr / 16000.0));
         dsr = (float) sr / (float) dec;
         tauMin = std::max (2, (int) (dsr / 900.0f)); tauMax = (int) (dsr / 70.0f);
@@ -213,10 +220,14 @@ public:
     }
     void reset()
     {
-        for (auto& c : ch) { std::fill (c.buf.begin(), c.buf.end(), 0.0f); std::fill (c.dry.begin(), c.dry.end(), 0.0f); c.pre.reset(); c.post.reset(); }
+        for (auto& c : ch) { std::fill (c.buf.begin(), c.buf.end(), 0.0f); std::fill (c.acc.begin(), c.acc.end(), 0.0f); std::fill (c.dry.begin(), c.dry.end(), 0.0f); c.pre.reset(); c.post.reset(); }
+        std::fill (mbuf.begin(), mbuf.end(), 0.0f);
         std::fill (dbuf.begin(), dbuf.end(), 0.0f);
-        w = 0; phase = 0.0f; ratio = 1.0f; corr = 0.0f; decAcc = 0.0f; decN = 0; hopCount = 0; dpos = 0;
+        w = 0; ratio = 1.0f; corr = 0.0f; decAcc = 0.0f; decN = 0; hopCount = 0; dpos = 0;
         hist.fill (0.0f); keyAge = 0; autoMask = 0; autoScore = -1.0f; sungMidi = -1.0f; voiced = false;
+        pitchHist = {}; hpos = 0; hcount = 0; holdLeft = 0;
+        streaming = false; firstGrain = true; sNext = 0.0; aPrev = 0; restartAfter = 0; hops = 0; vGain = 0.0f; blend = 0.0f;
+        heldTarget = -1; sinceVoiced = 0;
         info.sung = -1.0f; info.target = -1.0f; info.keyTonic = -1;
     }
 
@@ -229,6 +240,8 @@ public:
         const float hopSec = (float) kHop / dsr;
         const float aCorr = s.speed <= 0.0f ? 0.0f : std::exp (-hopSec / (0.003f + 0.4f * s.speed * s.speed));
         const float aRatio = 1.0f - std::exp (-1.0f / (0.004f * (float) sampleRate));
+        const float aV = 1.0f - std::exp (-1.0f / (0.006f * (float) sampleRate));
+        const float aB = 1.0f - std::exp (-1.0f / (0.02f * (float) sampleRate));
         const bool preOn = s.gritOn && (s.gritPos == 0 || s.gritPos == 3 || s.gritPos == 4);
         const bool postOn = s.gritOn && (s.gritPos == 1 || s.gritPos == 2 || s.gritPos == 3 || s.gritPos == 4);
         for (int c = 0; c < nc; ++c)
@@ -237,6 +250,9 @@ public:
             ch[(size_t) c].post.set (postOn, s.drive, s.trans, s.fuzz, s.gritMix, s.gritPos == 1 ? 0.7f : 1.0f);
         }
         const int mk = s.autoKey ? autoMask : s.mask;
+        phi = std::exp2 ((double) std::clamp (s.formant, -12.0f, 12.0f) / 12.0);
+        const bool formantOn = std::abs (s.formant) > 0.01f;
+        const int dd = latencySamples();                                        // original voice delayed like the wet path
 
         for (int i = 0; i < n; ++i)
         {
@@ -252,11 +268,8 @@ public:
             }
             const float rTarget = std::exp2 (corr / 12.0f);
             ratio += (rTarget - ratio) * aRatio;
-            phase += (1.0f - ratio) / (float) grain;
-            phase -= std::floor (phase);
-            const float p2 = phase + 0.5f - std::floor (phase + 0.5f);
-            const float w1 = std::sin (3.14159265f * phase), w2 = std::sin (3.14159265f * p2);
-            const float g1 = w1 * w1, g2 = w2 * w2;
+
+            float mpre = 0.0f;
             for (int c = 0; c < nc; ++c)
             {
                 auto& cc = ch[(size_t) c];
@@ -264,10 +277,25 @@ public:
                 const float pre = cc.pre.process (x);
                 cc.buf[(size_t) (dpos & mask)] = pre;
                 cc.dry[(size_t) (dpos & mask)] = x;
-                const float v = read (cc.buf, (float) dpos - 2.0f - phase * (float) grain) * g1
-                              + read (cc.buf, (float) dpos - 2.0f - p2 * (float) grain) * g2;
+                mpre += pre;
+            }
+            mbuf[(size_t) (dpos & mask)] = mpre / (float) nc;
+
+            const long long tOut = dpos - lat;
+            schedule (tOut, nc);
+            vGain += ((streaming ? 1.0f : 0.0f) - vGain) * aV;
+            const float bT = formantOn ? 1.0f : std::clamp (std::abs (corr) / 0.12f, 0.0f, 1.0f);   // tiny corrections stay bit-near the original
+            blend += (bT - blend) * aB;
+            const float mixW = vGain * blend;
+
+            for (int c = 0; c < nc; ++c)
+            {
+                auto& cc = ch[(size_t) c];
+                const size_t ti = (size_t) (tOut & mask);
+                const float y = cc.acc[ti]; cc.acc[ti] = 0.0f;
+                const float aligned = cc.buf[ti];
+                const float v = aligned + mixW * (y - aligned);
                 const float out = cc.post.process (v);
-                const int dd = grain / 2 + 2 + GritStage::kDelay * 2;             // dry delayed like the wet path
                 io[c][i] = out * s.level + cc.dry[(size_t) ((dpos - dd) & mask)] * s.dry;
             }
             ++dpos;
@@ -276,11 +304,114 @@ public:
 
 private:
     static constexpr int kHop = 128;   // decimated samples between pitch estimates (about 8 ms)
-    struct Chan { std::vector<float> buf, dry; GritStage pre, post; };
-    float read (const std::vector<float>& b, float pos) const
+    struct Chan { std::vector<float> buf, acc, dry; GritStage pre, post; };
+    struct PitchEntry { long long stamp = -1; float T = 0.0f; bool voiced = false; };
+
+    static float cubic (const std::vector<float>& b, int m, double pos)
     {
-        const float fl = std::floor (pos); const int i = (int) fl; const float fr = pos - fl;
-        return b[(size_t) (i & mask)] * (1.0f - fr) + b[(size_t) ((i + 1) & mask)] * fr;
+        const double fl = std::floor (pos); const long long i = (long long) fl; const float t = (float) (pos - fl);
+        const float p0 = b[(size_t) ((i - 1) & m)], p1 = b[(size_t) (i & m)], p2 = b[(size_t) ((i + 1) & m)], p3 = b[(size_t) ((i + 2) & m)];
+        return p1 + 0.5f * t * (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + t * (3.0f * (p1 - p2) + p3 - p0)));
+    }
+
+    const PitchEntry* look (long long t) const
+    {
+        const PitchEntry* oldest = nullptr;
+        for (int k = 0; k < hcount; ++k)
+        {
+            const PitchEntry& e = pitchHist[(size_t) ((hpos - 1 - k + kHist) % kHist)];
+            if (e.stamp <= t) return &e;
+            oldest = &e;
+        }
+        return oldest;
+    }
+    int halfWidth (float T) const
+    {
+        const float cap = ((float) lat - 0.75f * T) * 0.5f / (float) std::max (1.0, phi);
+        return std::max (16, (int) std::min (T, cap));
+    }
+
+    // lay down every grain that still touches the output sample we are about to play
+    void schedule (long long tOut, int nc)
+    {
+        if (! streaming)
+        {
+            if (tOut < restartAfter) return;
+            const PitchEntry* e = look (tOut);
+            if (e == nullptr || ! e->voiced || e->T < 8.0f) return;
+            const int hw0 = halfWidth (e->T);
+            const PitchEntry* e2 = look (tOut + hw0);                            // the voice must still be there where the first grain lands
+            if (e2 == nullptr || ! e2->voiced || e2->T < 8.0f) return;
+            streaming = true; firstGrain = true;
+            sNext = (double) (tOut + hw0);
+        }
+        for (int guard = 0; guard < 8; ++guard)
+        {
+            const PitchEntry* e = look ((long long) sNext);
+            if (e == nullptr || ! e->voiced || e->T < 8.0f) { streaming = false; restartAfter = tOut + lat / 4; return; }
+            const float T = e->T; const int hw = halfWidth (T);
+            if (sNext - (double) hw > (double) tOut) return;
+            addGrain (T, hw, nc);
+        }
+    }
+
+    float mb (long long i) const { return mbuf[(size_t) (i & mask)]; }
+
+    // the strongest peak within half a period around `c`: grains are centred on it (one pulse per grain)
+    long long epochNear (long long c, int Ti, long long maxA) const
+    {
+        long long best = c; float bv = -1.0f;
+        for (long long p = c - Ti / 2; p <= c + Ti / 2 && p <= maxA; ++p)
+        {
+            const float v = std::abs (mb (p - 1)) + 2.0f * std::abs (mb (p)) + std::abs (mb (p + 1));
+            if (v > bv) { bv = v; best = p; }
+        }
+        return best;
+    }
+
+    void addGrain (float T, int hw, int nc)
+    {
+        const int Ti = std::max (8, (int) T);
+        long long a;
+        const int hwSrc = (int) std::ceil ((double) hw * phi);
+        const long long maxA = dpos - std::max (hwSrc + 4, Ti / 2 + 2);
+        if (firstGrain) { a = epochNear (std::min ((long long) std::llround (sNext), maxA), Ti, maxA); firstGrain = false; }
+        else
+        {
+            const long long k = std::llround ((sNext - (double) aPrev) / (double) T);
+            if (k < 1) a = aPrev;                                                // synthesis is behind: repeat the grain
+            else
+            {
+                const long long ideal = aPrev + (long long) std::llround ((double) k * (double) T);
+                const int half = Ti / 2, Td = std::max (1, Ti / 4);
+                double er = 0.0;
+                for (int j = -half; j <= half; j += 2) { const double r = mb (aPrev + j); er += r * r; }
+                double bestC = -2.0; long long bestA = std::min (ideal, maxA);
+                // line the new grain up with the waveform of the last one (same phase of the period)
+                for (int dl = -Td; dl <= Td; ++dl)
+                {
+                    const long long ac = ideal + dl; if (ac > maxA) break;
+                    double cc = 0.0, ec = 0.0;
+                    for (int j = -half; j <= half; j += 2) { const double r = mb (aPrev + j), c = mb (ac + j); cc += r * c; ec += c * c; }
+                    const double v = cc / std::sqrt (er * ec + 1e-9);
+                    if (v > bestC) { bestC = v; bestA = ac; }
+                }
+                // a clear match keeps the chain; a poor match (new note, new vowel) finds the pulse again
+                a = bestC > 0.6 ? bestA : epochNear (std::min (ideal, maxA), Ti, maxA);
+            }
+        }
+        const double Tout = (double) T / (double) std::max (ratio, 0.25f);
+        hw = std::max (16, std::min (hw, (int) (0.9 * Tout)));       // measured: narrower than one output period keeps the vowel colour best
+        const double s0d = std::floor (sNext + 0.5); const long long s0 = (long long) s0d; const double fr = sNext - s0d;
+        const float g = (float) std::pow (Tout / (double) hw, 0.25);          // measured: keeps pulse loudness and tail energy closest at +-3 semitones
+        for (int i = -hw; i <= hw; ++i)
+        {
+            const float wgt = g * 0.5f * (1.0f + std::cos (3.14159265f * (float) i / (float) hw));
+            const double pos = (double) a + ((double) i - fr) * phi;
+            for (int c = 0; c < nc; ++c)
+                ch[(size_t) c].acc[(size_t) ((s0 + i) & mask)] += wgt * cubic (ch[(size_t) c].buf, mask, pos);
+        }
+        aPrev = a; sNext += Tout;
     }
 
     void analyse (const Settings& s, int mk, float aCorr)
@@ -314,7 +445,15 @@ private:
                 f0 = dsr / ((float) found + (std::abs (den) > 1e-12f ? 0.5f * (a - c) / den : 0.0f));
             }
         }
+        if (++hops * kHop < win + kHop) f0 = 0.0f;                              // the first window is mostly silence from before we started
         voiced = f0 > 0.0f;
+        // pitch history for the shifter: when and how long the period was (a lost estimate is held for two hops)
+        {
+            PitchEntry pe; pe.stamp = dpos - (long long) (win / 2) * dec;
+            if (voiced) { pe.T = (float) sampleRate / f0; pe.voiced = true; holdLeft = 2; lastT = pe.T; }
+            else if (holdLeft > 0 && lastT > 0.0f) { --holdLeft; pe.T = lastT; pe.voiced = true; }
+            pitchHist[(size_t) hpos] = pe; hpos = (hpos + 1) % kHist; hcount = std::min (hcount + 1, kHist);
+        }
         float wantCorr = 0.0f;
         if (voiced)
         {
@@ -328,7 +467,27 @@ private:
                 while (sung - n > 6.0f) n += 12.0f;
                 target = sung + (n - sung) * s.follow;
             }
-            else target = snapToMask (sung, mk, s.snap);
+            else
+            {
+                // note hysteresis: stay on the note you are on until you really move toward the next one
+                if (mk != 0 && mk != 0xFFF && s.snap > 0.0f)
+                {
+                    float full = snapToMask (sung, mk, 1.0f);
+                    if (sinceVoiced > 40) heldTarget = -1;
+                    bool keep = false;
+                    if (heldTarget >= 0 && (mk & (1 << (((heldTarget % 12) + 12) % 12))) != 0)
+                    {
+                        // gap to the next allowed note on the side we are leaning toward; leave the note only a quarter semitone past the midpoint
+                        int gap = 1; const int dirn = sung >= (float) heldTarget ? 1 : -1;
+                        while (gap < 12 && (mk & (1 << ((((heldTarget + dirn * gap) % 12) + 12) % 12))) == 0) ++gap;
+                        keep = std::abs (sung - (float) heldTarget) < 0.5f * (float) gap + 0.25f;
+                    }
+                    if (keep) full = (float) heldTarget; else heldTarget = (int) std::lround (full);
+                    target = sung + (full - sung) * std::clamp (s.snap, 0.0f, 1.0f);
+                }
+                else { target = snapToMask (sung, mk, s.snap); heldTarget = -1; }
+            }
+            sinceVoiced = 0;
             wantCorr = std::clamp (target - sung, -7.0f, 7.0f);
             // learn the key from the singing: pitch classes, slow decay
             for (auto& h : hist) h *= 0.9985f;
@@ -336,7 +495,7 @@ private:
             if (++keyAge >= 32) { keyAge = 0; learnKey(); }
             info.sung = sung; info.target = sung + wantCorr;
         }
-        else { info.sung = -1.0f; info.target = -1.0f; }
+        else { info.sung = -1.0f; info.target = -1.0f; ++sinceVoiced; }
         corr = corr * aCorr + wantCorr * (1.0f - aCorr);
     }
 
@@ -367,14 +526,21 @@ private:
         info.keyTonic = autoTonic; info.keyMinor = autoMinor;
     }
 
-    double sampleRate = 44100; int nch = 2, grain = 1100, mask = 4095, dec = 3, tauMin = 18, tauMax = 228, win = 456;
+    static constexpr int kHist = 128;
+    double sampleRate = 44100; int nch = 2, lat = 970, mask = 4095, dec = 3, tauMin = 18, tauMax = 228, win = 456;
     float dsr = 16000.0f;
     std::array<Chan, 2> ch;
-    std::vector<float> dbuf, d, cm;
+    std::vector<float> dbuf, d, cm, mbuf;
     int w = 0, decN = 0, hopCount = 0, keyAge = 0, autoMask = 0, autoTonic = 0, autoMinor = 0;
     long long dpos = 0;
-    float phase = 0, ratio = 1, corr = 0, decAcc = 0, autoScore = -1.0f, sungMidi = -1.0f;
+    float ratio = 1, corr = 0, decAcc = 0, autoScore = -1.0f, sungMidi = -1.0f;
     bool voiced = false;
+    std::array<PitchEntry, kHist> pitchHist {};
+    int hpos = 0, hcount = 0, holdLeft = 0, heldTarget = -1, sinceVoiced = 0;
+    float lastT = 0.0f, vGain = 0.0f, blend = 0.0f;
+    bool streaming = false, firstGrain = true;
+    double sNext = 0.0, phi = 1.0;
+    long long aPrev = 0, restartAfter = 0; int hops = 0;
     std::array<float, 12> hist {};
 };
 } // namespace purr::live

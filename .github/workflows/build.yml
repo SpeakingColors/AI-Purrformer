@@ -55,6 +55,12 @@ jobs:
           exe=$(find plugin/build -name "purr_selftest*" -type f \( -perm -u+x -o -name "*.exe" \) | grep -v "\.a$" | head -1)
           echo "running $exe"
           "$exe"
+      - name: Live pitch fix checks (pitch, vowel colour, clicks, latency, CPU)
+        shell: bash
+        run: |
+          exe=$(find plugin/build -name "purr_livetest*" -type f \( -perm -u+x -o -name "*.exe" \) | grep -v "\.a$" | head -1)
+          echo "running $exe"
+          "$exe"
       - name: Collect the plugin
         shell: bash
         run: |

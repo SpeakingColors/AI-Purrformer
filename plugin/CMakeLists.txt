@@ -79,6 +79,10 @@ target_compile_definitions(purr_selftest PUBLIC PURR_FX=1 JUCE_WEB_BROWSER=0 ${P
 target_link_libraries(purr_selftest PRIVATE juce::juce_audio_utils juce::juce_audio_formats juce::juce_audio_processors juce::juce_gui_basics juce::juce_events
   PUBLIC juce::juce_recommended_config_flags)
 
+# Live pitch fix checks: plain C++, no engine needed. Run: purr_livetest
+add_executable(purr_livetest tests/live_dsp_test.cpp)
+target_compile_features(purr_livetest PRIVATE cxx_std_17)
+
 # Pictures of the editor for the manual (not part of a release). cmake -DPURR_BUILD_SHOT=ON
 option(PURR_BUILD_SHOT "Build purr_screenshot" OFF)
 if(PURR_BUILD_SHOT)

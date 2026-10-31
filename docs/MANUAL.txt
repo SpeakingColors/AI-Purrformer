@@ -50,7 +50,7 @@ SING
 LIVE (top card of AI Purrformer)
   LIVE switch: fixes your singing in real time on the track. Snap to key, Retune speed (left = instant
   robot, right = slow and natural), Voice level, Original (your untouched mic). It shows the note you sing
-  and where it lands. It is a pitch fix of your own voice, not the AI voice. Reported delay is about 13 ms.
+  and where it lands. It is a pitch fix of your own voice, not the AI voice. Formant (0 = keep your own vowel sound, plus brighter, minus darker). Reported delay is about 23 ms.
   The AI voice is the Studio render (cards 1 to 5).
 VOICE FX
   Robot (autotune effect): Retune speed (left = natural glide, right = instant hard robot),

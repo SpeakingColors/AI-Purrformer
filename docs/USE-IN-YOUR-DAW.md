@@ -19,8 +19,10 @@ Put the plugin on a track with your mic. Leave **LIVE** on. You sing, and you he
 - The key is learned from what you sing. You can set it yourself (*Key: Manual*, note, scale) in card 2.
 - Send MIDI to the plugin and the voice sings those notes instead (**Follow MIDI**).
 - **Grit** works live too. **Original** lets you hear your untouched mic next to the fixed voice.
+- **Formant** changes the voice colour on purpose (plus = brighter and smaller, minus = darker and bigger). At 0 the plugin keeps your own vowel sound when it moves the pitch, so a corrected note still sounds like you.
+- Notes do not flicker: the plugin stays on a note until you really move toward the next one.
 - Live mode fixes the pitch of your own voice. It is not the AI voice. The AI voice is the studio render below.
-- Latency: the plugin reports a small delay (about 13 ms) to the DAW, which lines everything up. Keep your audio buffer small (128 or 256) and monitor through the DAW, not through your interface's direct monitoring, or you will hear your untouched voice too.
+- Latency: the plugin reports a small delay (about 23 ms) to the DAW, which lines everything up. Keep your audio buffer small (128 or 256) and monitor through the DAW, not through your interface's direct monitoring, or you will hear your untouched voice too.
 
 ## Studio render (extra): the 5 steps
 
