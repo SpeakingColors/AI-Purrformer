@@ -14,7 +14,7 @@ endif()
 
 # Studio 87 look and feel (wood cheeks, cat head, RenderGate). Headers and one source file are used directly.
 include(FetchContent)
-FetchContent_Declare(cat_ui GIT_REPOSITORY https://github.com/SpeakingColors/cat-ui.git GIT_TAG c247023b9e61e1eda3de6f1da8170f08c4376501 GIT_SHALLOW ON)
+FetchContent_Declare(cat_ui GIT_REPOSITORY https://github.com/SpeakingColors/cat-ui.git GIT_TAG c247023b9e61e1eda3de6f1da8170f08c4376501)
 FetchContent_GetProperties(cat_ui)
 if(NOT cat_ui_POPULATED)
   FetchContent_Populate(cat_ui)
